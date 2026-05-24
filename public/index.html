@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>RepoTracker</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <div class="shell">
+      <header class="topbar">
+        <div style="display: flex; align-items: center; gap: 16px;">
+          <div style="background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 20%, transparent), color-mix(in srgb, var(--danger) 10%, transparent)); padding: 12px; border-radius: 14px; border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); box-shadow: 0 4px 20px color-mix(in srgb, var(--accent) 20%, transparent); display: flex; align-items: center; justify-content: center;">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 80%, transparent));">
+              <line x1="6" y1="3" x2="6" y2="15"></line>
+              <circle cx="18" cy="6" r="3"></circle>
+              <circle cx="6" cy="18" r="3"></circle>
+              <path d="M18 9a9 9 0 0 1-9 9"></path>
+            </svg>
+          </div>
+          <div>
+            <p class="eyebrow">Personal Git Mission Control</p>
+            <h1 style="margin: 0; font-size: 2rem; background: linear-gradient(90deg, var(--text) 30%, var(--accent)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;">RepoTracker</h1>
+          </div>
+        </div>
+        <nav class="tabs">
+          <button class="tab-btn active" data-target="tab-repos">Repositories</button>
+          <button class="tab-btn" data-target="tab-insights">Insights & Timeline</button>
+          <button class="tab-btn" data-target="tab-settings">Settings</button>
+        </nav>
+        <div class="topbar-actions">
+          <button class="ghost" id="themeToggleBtn" type="button" aria-label="Toggle Theme" style="padding: 0 12px;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+          </button>
+          <button class="primary" id="scanButton" type="button">Scan repos</button>
+        </div>
+      </header>
+
+      <main>
+        <!-- REPOSITORIES TAB -->
+        <div id="tab-repos" class="tab-pane active">
+          <section class="hero">
+            <div class="hero-copy">
+              <p class="kicker">Local-first dashboard</p>
+              <h2>See every working repo, what needs attention, and where your momentum is.</h2>
+              <p id="scanMeta">Waiting for first scan...</p>
+            </div>
+            <div class="spotlight" id="spotlight">
+              <span class="muted">Spotlight appears after scanning.</span>
+            </div>
+          </section>
+
+          <section class="metrics-grid" id="metricsGrid" aria-label="Repository metrics"></section>
+
+          <section class="controls">
+            <label class="search">
+              <span>Search</span>
+              <input id="searchInput" type="search" placeholder="Repo, path, branch, tag, language">
+            </label>
+            <div class="filter-row" id="filterRow">
+              <button class="filter active" type="button" data-filter="all">All</button>
+              <button class="filter" type="button" data-filter="pinned">Pinned</button>
+              <button class="filter" type="button" data-filter="dirty">Dirty</button>
+              <button class="filter" type="button" data-filter="ahead">Ahead</button>
+              <button class="filter" type="button" data-filter="behind">Behind</button>
+              <button class="filter" type="button" data-filter="stale">Stale</button>
+              <button class="filter" type="button" data-filter="clean">Clean</button>
+              <button class="filter risk" type="button" data-filter="risk">Risk Radar</button>
+            </div>
+          </section>
+
+          <section>
+            <div class="section-heading">
+              <h3>Repositories</h3>
+              <span id="resultCount" class="muted">0 shown</span>
+            </div>
+            <div class="repo-grid" id="repoGrid"></div>
+          </section>
+        </div>
+
+        <!-- INSIGHTS & TIMELINE TAB -->
+        <div id="tab-insights" class="tab-pane hidden">
+          <div class="insights-grid">
+            <div class="insights-col">
+              <h3>Attention Queue</h3>
+              <div id="attentionList" class="stack"></div>
+              <h3 style="margin-top: 24px;">Language Mix</h3>
+              <div id="languageList" class="stack"></div>
+            </div>
+            <div class="insights-col" style="grid-column: span 2;">
+              <h3>Global Timeline</h3>
+              <div id="timelineList" class="stack timeline"></div>
+              <button class="ghost" id="standupButton" type="button" style="width: 100%; margin-top: 10px;">Generate AI Standup</button>
+
+              <h3 style="margin-top: 32px;">Global Action Items (TODOs)</h3>
+              <div id="todoList" class="stack timeline" style="margin-top: 8px;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SETTINGS TAB -->
+        <div id="tab-settings" class="tab-pane hidden">
+          <div class="settings-panel" style="max-width: 600px; margin: 0 auto;">
+            <div class="dialog-head">
+              <div>
+                <p class="eyebrow">Scan settings</p>
+                <h2>Configuration</h2>
+              </div>
+            </div>
+            <label>
+              <span>Folders to scan, one per line</span>
+              <textarea id="rootsInput" rows="6" spellcheck="false"></textarea>
+            </label>
+            <label>
+              <span>Max folder depth</span>
+              <input id="depthInput" type="number" min="1" max="8">
+            </label>
+            <div class="integration-card">
+              <div class="integration-icon" style="background: color-mix(in srgb, var(--info) 15%, transparent); color: var(--info);">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
+              </div>
+              <div class="integration-content">
+                <div class="integration-header">
+                  <h3>GitHub Integration</h3>
+                  <div class="chip info">Optional</div>
+                </div>
+                <p>Unlock <strong>☁️ Cloud Repositories</strong> and advanced <strong>GitHub Stats</strong> (stars, issues, CI status) by providing your Personal Access Token.</p>
+                <input id="patInput" type="password" placeholder="ghp_..." style="margin-top: 12px;">
+              </div>
+            </div>
+
+            <div class="integration-card">
+              <div class="integration-icon" style="background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent);">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+              </div>
+              <div class="integration-content">
+                <div class="integration-header">
+                  <h3>Generative AI</h3>
+                  <div class="chip accent">Optional</div>
+                </div>
+                <p>Powers the <strong>🤖 AI Standup</strong> feature. Provide an API Key to generate smart weekly summaries of your coding activity across all projects.</p>
+                <input id="aiKeyInput" type="password" placeholder="Gemini or OpenAI API Key" style="margin-top: 12px;">
+              </div>
+            </div>
+
+            <div class="integration-card">
+              <div class="integration-icon" style="background: color-mix(in srgb, var(--warn) 15%, transparent); color: var(--warn);">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+              </div>
+              <div class="integration-content">
+                <div class="integration-header">
+                  <h3>WakaTime</h3>
+                  <div class="chip warn">Optional</div>
+                </div>
+                <p>Unlock <strong>⏱️ Time Tracking</strong>. Connects to your WakaTime account to show exact coding hours spent on each repo this week.</p>
+                <input id="wakaKeyInput" type="password" placeholder="waka_..." style="margin-top: 12px;">
+              </div>
+            </div>
+            <div class="integration-card">
+              <div class="integration-icon" style="background: color-mix(in srgb, var(--danger) 15%, transparent); color: var(--danger);">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+              </div>
+              <div class="integration-content">
+                <div class="integration-header">
+                  <h3>App Access Password</h3>
+                  <div class="chip danger">Security</div>
+                </div>
+                <p>Lock down your RepoTracker instance. Require this password to load the dashboard or use any APIs.</p>
+                <input id="appPasswordInput" type="password" placeholder="Leave blank for no password" style="margin-top: 12px;">
+              </div>
+            </div>
+            <menu>
+              <button class="primary" id="saveSettingsButton" value="default">Save and scan</button>
+            </menu>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <!-- MODALS -->
+    <dialog id="authDialog" style="background: var(--bg); color: var(--text); padding: 40px; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 20px 40px rgba(0,0,0,0.5); width: 400px; max-width: 90vw;">
+      <div style="text-align: center;">
+        <div style="width: 64px; height: 64px; border-radius: 50%; background: color-mix(in srgb, var(--danger) 15%, transparent); color: var(--danger); display: flex; align-items: center; justify-content: center; margin: 0 auto 24px;">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+        </div>
+        <h2 style="margin-top: 0;">Locked</h2>
+        <p class="muted" style="margin-bottom: 24px;">Enter your App Access Password to unlock RepoTracker.</p>
+        <form id="authForm">
+          <input id="authPasswordInput" type="password" placeholder="Password" style="width: 100%; text-align: center; margin-bottom: 16px; padding: 12px; font-size: 1.1rem; letter-spacing: 0.2em;" autofocus>
+          <button type="submit" class="primary" style="width: 100%; justify-content: center;">Unlock Dashboard</button>
+        </form>
+      </div>
+    </dialog>
+
+    <dialog id="cloneDialog">
+      <div class="settings-panel">
+        <div class="dialog-head">
+          <h2>Select Clone Destination</h2>
+          <button class="icon-button" value="cancel" onclick="document.getElementById('cloneDialog').close()">x</button>
+        </div>
+        <p class="muted" style="margin-top: 8px; margin-bottom: 16px;">Choose a folder to clone this repository into:</p>
+        <select id="cloneDestSelect" style="width: 100%; padding: 12px; margin-bottom: 16px; background: var(--input-bg); color: var(--text); border: 1px solid var(--border); border-radius: 8px;"></select>
+        <menu>
+          <button class="primary" id="confirmCloneButton">Clone</button>
+        </menu>
+      </div>
+    </dialog>
+
+    <dialog id="searchDialog">
+      <div class="settings-panel">
+        <div class="dialog-head">
+          <h2>Global Search</h2>
+          <button class="icon-button" value="cancel" onclick="document.getElementById('searchDialog').close()">x</button>
+        </div>
+        <input id="globalSearchInput" type="search" placeholder="Search across all repos (Ctrl+K)...">
+        <div id="searchResults" class="stack" style="max-height: 400px; overflow-y: auto; margin-top: 16px;"></div>
+      </div>
+    </dialog>
+
+    <dialog id="standupDialog">
+      <div class="settings-panel" style="width: 800px; max-width: 90vw;">
+        <div class="dialog-head">
+          <h2>AI Standup Report</h2>
+          <button class="icon-button" value="cancel" onclick="document.getElementById('standupDialog').close()">x</button>
+        </div>
+        <div id="standupContent" style="max-height: 60vh; overflow-y: auto; margin-top: 16px; white-space: pre-wrap; font-size: 0.9rem; line-height: 1.5;"></div>
+      </div>
+    </dialog>
+
+    <!-- TEMPLATES -->
+    <template id="repoCardTemplate">
+      <article class="repo-card">
+        <div class="card-head">
+          <div class="repo-title">
+            <button class="pin-button" type="button" title="Pin repo">Pin</button>
+            <div>
+              <h4></h4>
+              <p class="path"></p>
+            </div>
+          </div>
+          <div class="health-ring" aria-label="Health score"><span></span></div>
+        </div>
+        <div class="chips"></div>
+        <div class="github-stats hidden"></div>
+        <div class="wakatime-stats hidden"></div>
+        <div class="status-line"></div>
+        <div class="commit-line"></div>
+        <div class="tag-editor">
+          <input type="text" placeholder="Add tags with comma">
+        </div>
+        <textarea class="note" rows="3" placeholder="Private note, next step, owner, release plan..."></textarea>
+        <div class="card-actions">
+          <select class="quick-actions-select ghost hidden" style="appearance: auto; padding-right: 8px;">
+            <option value="">Quick Actions...</option>
+          </select>
+          <button class="ghost setup-button" type="button" title="Pull latest code and automatically install dependencies">Pull & Setup</button>
+          <button class="ghost audit-button" type="button" title="Dependency Audit">Audit</button>
+          <button class="ghost aisync-button hidden" type="button" title="Auto-commit and push with AI">AI Sync 🪄</button>
+          <button class="ghost open-button" type="button">Open folder</button>
+          <button class="primary clone-button hidden" type="button">Clone to Local</button>
+          <a class="remote-link" target="_blank" rel="noreferrer">Remote</a>
+        </div>
+      </article>
+    </template>
+
+    <script src="/js/app.js" type="module"></script>
+  </body>
+</html>
