@@ -11,6 +11,7 @@
     "node": ">=20"
   },
   "dependencies": {
-    "node-notifier": "^10.0.1"
+    "node-notifier": "^10.0.1",
+    "puppeteer": "^25.0.4"
   }
 }

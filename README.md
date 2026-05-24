@@ -1,75 +1,108 @@
-# 🚀 RepoTracker: Personal Git Mission Control
+# 🚀 RepoTracker — Personal Git Mission Control
 
-RepoTracker is a hyper-fast, local-first personal dashboard for your software engineering projects. It scans the folders on your machine, reads your Git statuses, and turns your disparate repositories into a centralized **Mission Control** view.
+RepoTracker is a **local-first**, zero-cloud personal dashboard for every Git repository on your machine. Point it at your code folders and it instantly surfaces health scores, sync drift, dirty worktrees, and action items — all in a beautiful dark-mode UI with no subscription, no telemetry, and no data leaving your computer.
 
-With a beautiful, glassmorphic "Black-Pink" dark mode theme, RepoTracker instantly surfaces health scores, sync drift, dirty worktrees, and action items across your entire workstation.
+![RepoTracker Dashboard](https://img.shields.io/badge/Node.js-%3E%3D20-brightgreen) ![License](https://img.shields.io/badge/license-MIT-blue) ![Local First](https://img.shields.io/badge/data-local--only-pink)
 
 ---
 
 ## ✨ Features
 
-- **🏠 Local-First & Secure**: Scans local folders for Git repos. Your data never leaves your machine. Features an "App Password" security lock to prevent unauthorized access.
-- **☁️ Cloud Sync**: Connects to the GitHub API to fetch your remote repositories alongside your local ones. Shows GitHub stats (stars, issues, CI status) and supports 1-click local cloning.
-- **🤖 AI Standups & AI Sync**: Integrates with Google Gemini to automatically read your git commit logs and generate a professional weekly standup report. Also features **1-Click AI Sync** to automatically generate a commit message, commit, and push dirty worktrees.
-- **⏱️ WakaTime Tracking**: Pulls real-time coding metrics to show exactly how many hours you spent in the editor for each specific repository.
-- **🔍 Global Code Search**: A lightning-fast `Ctrl+K` unified search bar that filters your repo cards AND instantly searches code inside your project files simultaneously.
-- **📝 Global TODO Aggregation**: Automatically aggregates `TODO:`, `FIXME:`, and `HACK:` comments across *all* your projects into a centralized "Action Items" queue.
-- **🔔 Background Notifications**: Runs a silent background worker that sends native Windows desktop notifications if any of your repositories fall behind their remote upstream.
-- **⚡ Quick Actions**: Run NPM scripts, pull the latest code, auto-install dependencies, and run security audits directly from the dashboard.
+| Feature | Description |
+|---|---|
+| 🏠 **Local-First & Private** | All data stored in `data/` on your machine. Never uploaded anywhere. |
+| 🔒 **App Password Lock** | Optional password protection — locks the entire UI and all APIs. |
+| ☁️ **GitHub Cloud Sync** | Fetch your remote repos, stars, open issues, CI status. 1-click clone to local. |
+| 🤖 **AI Standup Generator** | Reads your git logs and generates a professional weekly standup report via Gemini. |
+| 🪄 **1-Click AI Sync** | Auto-generates a commit message, commits, and pushes dirty worktrees with one button. |
+| ⏱️ **WakaTime Integration** | Shows real editor hours per repo from your WakaTime account. |
+| 🔍 **Global Code Search** | `Ctrl+K` palette — searches repo names AND source code across all projects instantly. |
+| 📝 **TODO Aggregator** | Collects every `TODO:`, `FIXME:`, and `HACK:` across all repos into one action queue. |
+| 🔔 **Background Notifications** | Native desktop alerts when repos fall behind their remote upstream. |
+| ⚡ **Quick Actions** | Run npm scripts, `Pull & Setup` (git pull + install deps), and `npm audit` from the card. |
+| 🎨 **Smart Theme** | Glassmorphic dark/light mode with full system preference detection. |
 
 ---
 
-## 🛠️ Setup & Installation
+## 🛠️ Setup
 
-Follow these simple steps to get your personal Mission Control up and running.
+### Prerequisites
+- **Node.js** v20 or higher
+- **Git** available on your PATH
 
-### 1. Prerequisites
-Ensure you have the following installed on your machine:
-- **Node.js** (v18 or higher)
-- **Git** (Accessible from your command line)
-
-### 2. Clone and Install
-Clone this repository to your local machine and install the required dependencies (like `node-notifier` for desktop alerts):
+### Install & Run
 
 ```bash
 git clone https://github.com/yourusername/repotracker.git
 cd repotracker
 npm install
-```
-
-### 3. Start the Server
-Boot up the local Node.js server. The server needs to remain running in the background to serve the dashboard and process background notifications.
-
-```bash
 npm start
 ```
 
-### 4. Launch the Dashboard
-Open your favorite web browser and navigate to:
-```text
-http://localhost:4177
+Then open **http://localhost:4177** in your browser.
+
+On first launch, RepoTracker will show an **onboarding screen** to configure your code folders. It will also auto-detect common developer directories (e.g. `~/Projects`, `~/Documents/GitHub`) and pre-fill them for you.
+
+---
+
+## ⚙️ Configuration
+
+All settings live in the **Settings tab** in the UI. Everything is stored locally in `data/config.json` (gitignored — your secrets never leave your machine).
+
+### Root Folders
+Absolute paths to folders where you keep your code, one per line. RepoTracker scans these recursively up to the configured depth.
+
+```
+C:\Users\Name\Projects
+C:\Work\Repos
+```
+
+### Optional Integrations
+
+| Key | Where to get it | Unlocks |
+|---|---|---|
+| **GitHub PAT** | [github.com/settings/tokens](https://github.com/settings/tokens) — `repo` scope | Cloud repos, stars, CI status, clone |
+| **Gemini API Key** | [aistudio.google.com](https://aistudio.google.com/app/apikey) | AI Standup, AI Sync |
+| **WakaTime Key** | [wakatime.com/settings/api-key](https://wakatime.com/settings/api-key) | Hours-per-repo time tracking |
+
+### App Access Password
+Set a password in Settings to lock the dashboard behind a login screen. The password is stored in `data/config.json` (local only). To unlock from another browser session, enter the password on the lock screen.
+
+---
+
+## 📁 Project Structure
+
+```
+repotracker/
+├── src/
+│   ├── server.js          # HTTP server entry point
+│   ├── git.js             # Git scanning & repo analysis
+│   ├── utils.js           # JSON helpers, config normalization
+│   ├── constants.js       # Port, paths, MIME types, defaults
+│   └── routes/
+│       └── api.js         # All /api/* route handlers
+├── public/
+│   ├── index.html         # Single-page app shell
+│   ├── styles.css         # Design system & all styles
+│   └── js/
+│       ├── app.js         # Main frontend logic
+│       ├── api.js         # Fetch wrapper with auth
+│       └── components.js  # Shared render helpers
+└── data/                  # Gitignored — created at runtime
+    ├── config.json        # Your settings & API keys
+    └── repo-meta.json     # Pinned repos, notes, tags
 ```
 
 ---
 
-## ⚙️ Configuration & API Keys
+## 🔒 Security Notes
 
-When you first launch RepoTracker, navigate to the **Settings** tab. Here you can configure everything securely. All configuration data is stored locally in the `.gitignore`'d `data/` directory.
-
-### Root Folders (Required)
-Add the absolute paths to the folders where you keep your code (e.g., `C:\Users\Name\Projects`). RepoTracker will recursively scan these folders to find your Git repositories.
-
-### Integrations (Optional but Recommended)
-Unlock the full power of RepoTracker by adding these API keys:
-- **GitHub PAT:** Generate a Personal Access Token to fetch your remote repositories, CI statuses, and enable 1-click cloning.
-- **Gemini AI Key:** Add a Google Gemini API key to unlock "AI Standups" and the "1-Click AI Sync" auto-commit features.
-- **WakaTime Key:** Add your WakaTime Secret API Key to see time-tracking metrics directly on your repository cards.
-
-### App Access Password
-To ensure your local dashboard remains completely private, you can set an **App Access Password**. This encrypts access to the UI and all backend APIs.
+- `data/config.json` is **gitignored** by default — your API keys and password will never be committed.
+- The App Password is stored in plaintext locally (it protects the web UI, not the file system).
+- All GitHub/Gemini/WakaTime API calls are proxied through the local Node.js server — your keys are never exposed to the browser.
 
 ---
 
 <p align="center">
-  <i>Built with Vanilla JS, CSS, and Node.js for maximum performance.</i>
+  <i>Built with Vanilla JS, CSS, and Node.js — no framework, no bundler, no build step.</i>
 </p>

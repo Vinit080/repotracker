@@ -1,4 +1,30 @@
+# ── Runtime data (contains secrets & local paths) ────────────────────────────
 data/*.json
+
+# ── Dependencies ──────────────────────────────────────────────────────────────
 node_modules/
+
+# ── Environment & secrets ─────────────────────────────────────────────────────
 .env
+.env.*
+!.env.example
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
 *.log
+logs/
+
+# ── Debug / scratch files ─────────────────────────────────────────────────────
+debug_*.png
+screenshot.js
+verify.js
+test_*.js
+demo_*.js
+demo_*.ps1
+Demo-Workspace/
+
+# ── OS / editor ───────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp

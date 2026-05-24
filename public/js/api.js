@@ -11,7 +11,11 @@ export async function api(path, options = {}) {
   });
 
   if (response.status === 401) {
-    throw new Error('UNAUTHORIZED');
+    let errData = {};
+    try { errData = await response.json(); } catch (e) {}
+    const err = new Error('UNAUTHORIZED');
+    err.data = errData;
+    throw err;
   }
 
   if (!response.ok) {

@@ -6,11 +6,36 @@ import { CONFIG_FILE, META_FILE, DEFAULT_CONFIG } from '../constants.js';
 import { readJson, writeJson, writeJsonIfMissing, normalizeConfig, readRequestJson, sendJson } from '../utils.js';
 import { scanRepos, runGit } from '../git.js';
 
+import os from 'node:os';
+
 const execFileAsync = promisify(execFile);
 
 export async function handleApi(request, response) {
   const requestUrl = new URL(request.url, `http://${request.headers.host}`);
   const config = normalizeConfig(await readJson(CONFIG_FILE, DEFAULT_CONFIG));
+
+  if (request.method === 'GET' && requestUrl.pathname === '/api/suggest-roots') {
+    const home = os.homedir();
+    const commonPaths = [
+      path.join(home, 'Projects'),
+      path.join(home, 'source', 'repos'),
+      path.join(home, 'Documents', 'GitHub'),
+      path.join(home, 'Development'),
+      path.join(home, 'Code'),
+      path.join(home, 'workspace'),
+      path.join(home, 'Documents'),
+      path.join(home, 'Desktop')
+    ];
+
+    const existingPaths = [];
+    for (const p of commonPaths) {
+      try {
+        if ((await fs.stat(p)).isDirectory()) existingPaths.push(p);
+      } catch (e) { }
+    }
+    sendJson(response, 200, { suggestions: existingPaths });
+    return;
+  }
 
   if (request.method === 'POST' && requestUrl.pathname === '/api/login') {
     const body = await readRequestJson(request);
@@ -25,7 +50,7 @@ export async function handleApi(request, response) {
   if (config.appPassword) {
     const authHeader = request.headers.authorization || '';
     if (authHeader !== `Bearer ${config.appPassword}`) {
-      sendJson(response, 401, { error: 'Unauthorized' });
+      sendJson(response, 401, { error: 'Unauthorized', userName: config.userName || '' });
       return;
     }
   }
@@ -182,11 +207,11 @@ export async function handleApi(request, response) {
         const out = await runGit(repo.path, ['grep', '-n', '-i', '-I', body.query]);
         if (out) {
           out.split(/\r?\n/).forEach(line => {
-             const parts = line.split(':');
-             if (parts.length >= 3) results.push({ repo: repo.name, path: repo.path, file: parts[0], line: parts[1], content: parts.slice(2).join(':').trim() });
+            const parts = line.split(':');
+            if (parts.length >= 3) results.push({ repo: repo.name, path: repo.path, file: parts[0], line: parts[1], content: parts.slice(2).join(':').trim() });
           });
         }
-      } catch {}
+      } catch { }
     }));
     sendJson(response, 200, { results: results.slice(0, 100) });
     return;
@@ -214,19 +239,19 @@ export async function handleApi(request, response) {
         const out = await runGit(repo.path, ['grep', '-n', '-i', '-E', 'TODO:|FIXME:|HACK:']);
         if (out) {
           out.split(/\r?\n/).forEach(line => {
-             const parts = line.split(':');
-             if (parts.length >= 3) {
-               results.push({
-                 repo: repo.name,
-                 path: repo.path,
-                 file: parts[0],
-                 line: parts[1],
-                 content: parts.slice(2).join(':').trim()
-               });
-             }
+            const parts = line.split(':');
+            if (parts.length >= 3) {
+              results.push({
+                repo: repo.name,
+                path: repo.path,
+                file: parts[0],
+                line: parts[1],
+                content: parts.slice(2).join(':').trim()
+              });
+            }
           });
         }
-      } catch {}
+      } catch { }
     }));
     sendJson(response, 200, { results: results.slice(0, 200) });
     return;
@@ -242,27 +267,27 @@ export async function handleApi(request, response) {
       const diff1 = await runGit(repoPath, ['diff']);
       const diff2 = await runGit(repoPath, ['diff', '--staged']);
       const combinedDiff = (diff1 + '\n' + diff2).trim();
-      
+
       if (!combinedDiff) {
         sendJson(response, 400, { error: 'No changes to commit' });
         return;
       }
-      
+
       const prompt = `Write a concise 1-line professional git commit message for these changes. Return ONLY the commit message string, no quotes or markdown formatting.\n\nDiff:\n${combinedDiff.slice(0, 10000)}`;
-      
+
       const aiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${config.aiApiKey}`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
       });
       const data = await aiResponse.json();
       if (data.error) throw new Error(data.error.message);
-      
+
       const message = (data.candidates?.[0]?.content?.parts?.[0]?.text || 'Auto-sync changes').trim();
-      
+
       await runGit(repoPath, ['add', '-A']);
       await runGit(repoPath, ['commit', '-m', message]);
       await runGit(repoPath, ['push']);
-      
+
       sendJson(response, 200, { ok: true, message });
     } catch (err) { sendJson(response, 500, { error: err.message }); }
     return;
@@ -296,20 +321,20 @@ export async function handleApi(request, response) {
     const targetRoot = body.root ? path.resolve(body.root) : '';
     const cloneUrl = body.url;
     const repoName = body.name;
-    
+
     if (!targetRoot || !cloneUrl || !repoName) {
       sendJson(response, 400, { error: 'Missing root, url, or name' });
       return;
     }
-    
+
     try {
       await fs.access(targetRoot);
       const targetPath = path.join(targetRoot, repoName);
-      
+
       const command = process.platform === 'win32' ? 'cmd.exe' : 'sh';
       const winArgs = ['/c', 'start', 'cmd.exe', '/k', `echo Cloning ${repoName}... & git clone ${cloneUrl} "${targetPath}" & echo Done. You can close this window.`];
       const macArgs = ['-c', `echo "Cloning ${repoName}..."; git clone ${cloneUrl} "${targetPath}"; echo "Done."`];
-      
+
       spawn(command, process.platform === 'win32' ? winArgs : macArgs, { cwd: targetRoot, detached: true, stdio: 'ignore' }).unref();
       sendJson(response, 200, { ok: true });
     } catch (e) {

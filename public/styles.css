@@ -118,6 +118,14 @@ button:disabled {
   justify-content: space-between;
   gap: 20px;
   margin-bottom: 28px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: color-mix(in srgb, var(--bg) 80%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 20px 0;
+  margin-top: -28px;
 }
 
 .topbar h1,
@@ -797,4 +805,35 @@ menu {
 .chip.accent {
   background: color-mix(in srgb, var(--accent) 15%, transparent);
   color: var(--accent);
+}
+
+/* ── Utility ──────────────────────────────────────────────────────────────── */
+.hidden {
+  display: none !important;
+}
+
+/* ── Tab panes ───────────────────────────────────────────────────────────── */
+.tab-pane {
+  display: none;
+}
+.tab-pane.active {
+  display: block;
+}
+
+/* ── Landing / Onboarding screen ────────────────────────────────────────── */
+#landingScreen {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  overflow-y: auto;
+  background: var(--bg-gradient);
+  display: none;
+}
+#landingScreen:not(.hidden) {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  text-align: center;
 }

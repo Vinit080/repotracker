@@ -29,8 +29,11 @@
           <button class="tab-btn" data-target="tab-settings">Settings</button>
         </nav>
         <div class="topbar-actions">
+          <button class="ghost hidden" id="logoutBtn" type="button" aria-label="Logout" title="Lock Dashboard" style="padding: 0 12px; color: var(--danger);">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+          </button>
           <button class="ghost" id="themeToggleBtn" type="button" aria-label="Toggle Theme" style="padding: 0 12px;">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
           </button>
           <button class="primary" id="scanButton" type="button">Scan repos</button>
         </div>
@@ -79,7 +82,7 @@
         </div>
 
         <!-- INSIGHTS & TIMELINE TAB -->
-        <div id="tab-insights" class="tab-pane hidden">
+        <div id="tab-insights" class="tab-pane">
           <div class="insights-grid">
             <div class="insights-col">
               <h3>Attention Queue</h3>
@@ -99,7 +102,7 @@
         </div>
 
         <!-- SETTINGS TAB -->
-        <div id="tab-settings" class="tab-pane hidden">
+        <div id="tab-settings" class="tab-pane">
           <div class="settings-panel" style="max-width: 600px; margin: 0 auto;">
             <div class="dialog-head">
               <div>
@@ -114,6 +117,10 @@
             <label>
               <span>Max folder depth</span>
               <input id="depthInput" type="number" min="1" max="8">
+            </label>
+            <label>
+              <span>Your Name (Optional)</span>
+              <input id="userNameInput" type="text" placeholder="e.g. John" style="margin-bottom: 24px;">
             </label>
             <div class="integration-card">
               <div class="integration-icon" style="background: color-mix(in srgb, var(--info) 15%, transparent); color: var(--info);">
@@ -183,7 +190,7 @@
         <div style="width: 64px; height: 64px; border-radius: 50%; background: color-mix(in srgb, var(--danger) 15%, transparent); color: var(--danger); display: flex; align-items: center; justify-content: center; margin: 0 auto 24px;">
           <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
         </div>
-        <h2 style="margin-top: 0;">Locked</h2>
+        <h2 id="authGreeting" style="margin-top: 0;">Locked</h2>
         <p class="muted" style="margin-bottom: 24px;">Enter your App Access Password to unlock RepoTracker.</p>
         <form id="authForm">
           <input id="authPasswordInput" type="password" placeholder="Password" style="width: 100%; text-align: center; margin-bottom: 16px; padding: 12px; font-size: 1.1rem; letter-spacing: 0.2em;" autofocus>
@@ -226,6 +233,46 @@
         <div id="standupContent" style="max-height: 60vh; overflow-y: auto; margin-top: 16px; white-space: pre-wrap; font-size: 0.9rem; line-height: 1.5;"></div>
       </div>
     </dialog>
+
+    <div id="landingScreen" class="hidden">
+      <div style="max-width: 800px; width: 100%; display: grid; gap: 40px; align-items: center; justify-content: center;">
+        
+        <div>
+          <div style="width: 80px; height: 80px; border-radius: 20px; background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 20%, transparent), color-mix(in srgb, var(--danger) 10%, transparent)); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); box-shadow: 0 10px 30px color-mix(in srgb, var(--accent) 20%, transparent); display: flex; align-items: center; justify-content: center; margin: 0 auto 32px;">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="filter: drop-shadow(0 0 8px color-mix(in srgb, var(--accent) 80%, transparent));"><line x1="6" y1="3" x2="6" y2="15"></line><circle cx="18" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><path d="M18 9a9 9 0 0 1-9 9"></path></svg>
+          </div>
+          <h1 style="font-size: clamp(2.5rem, 6vw, 4rem); margin: 0 0 16px; letter-spacing: -0.02em;">Welcome to <span style="background: linear-gradient(90deg, var(--text) 30%, var(--accent)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;">RepoTracker</span></h1>
+          <p class="muted" style="font-size: 1.25rem; max-width: 600px; margin: 0 auto; line-height: 1.6;">Your completely local, private Git Mission Control. Track hundreds of repositories, generate AI-driven standups, and never lose momentum again.</p>
+        </div>
+
+        <div style="background: var(--panel-bg); padding: 40px; border-radius: 16px; border: 1px solid var(--border); box-shadow: var(--shadow); text-align: left; max-width: 500px; margin: 0 auto; width: 100%;">
+          <form id="onboardingForm">
+            <h3 style="margin-top: 0; margin-bottom: 24px; font-size: 1.4rem;">Let's get set up</h3>
+            
+            <label style="display: block; margin-bottom: 20px;">
+              <span style="display: block; margin-bottom: 8px; font-weight: 500; color: var(--muted);">What should we call you? (Optional)</span>
+              <input id="onboardingNameInput" type="text" placeholder="e.g. John" style="width: 100%; padding: 14px; font-size: 1rem;">
+            </label>
+            
+            <label style="display: block; margin-bottom: 20px;">
+              <span style="display: block; margin-bottom: 8px; font-weight: 500; color: var(--muted);">Where do you keep your code?</span>
+              <textarea id="onboardingRootsInput" rows="3" placeholder="C:\Users\Name\Projects&#10;C:\Work\Repositories" style="width: 100%; padding: 14px; font-size: 1rem;"></textarea>
+            </label>
+            
+            <div style="background: color-mix(in srgb, var(--info) 10%, transparent); padding: 16px; border-radius: 8px; border: 1px solid color-mix(in srgb, var(--info) 20%, transparent); margin-bottom: 24px;">
+              <label style="display: block;">
+                <span style="display: block; margin-bottom: 8px; font-weight: 500; color: var(--info);">GitHub Personal Access Token (Optional)</span>
+                <p style="font-size: 0.85rem; color: color-mix(in srgb, var(--info) 80%, var(--bg)); margin: 0 0 12px 0;">Allows RepoTracker to fetch Cloud Repositories, Stars, and CI Statuses securely without a database.</p>
+                <input id="onboardingPatInput" type="password" placeholder="ghp_..." style="width: 100%; padding: 12px; font-size: 1rem; border-color: color-mix(in srgb, var(--info) 30%, transparent);">
+              </label>
+            </div>
+            
+            <button type="submit" class="primary" style="width: 100%; justify-content: center; padding: 16px; font-size: 1.15rem;">Enter Dashboard</button>
+          </form>
+        </div>
+        
+      </div>
+    </div>
 
     <!-- TEMPLATES -->
     <template id="repoCardTemplate">

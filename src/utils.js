@@ -35,13 +35,17 @@ export function normalizeConfig(input = {}) {
   const githubPat = typeof input.githubPat === 'string' ? input.githubPat : DEFAULT_CONFIG.githubPat;
   const aiApiKey = typeof input.aiApiKey === 'string' ? input.aiApiKey : DEFAULT_CONFIG.aiApiKey;
   const wakatimeApiKey = typeof input.wakatimeApiKey === 'string' ? input.wakatimeApiKey : DEFAULT_CONFIG.wakatimeApiKey;
+  const userName = typeof input.userName === 'string' ? input.userName : DEFAULT_CONFIG.userName;
+  const appPassword = typeof input.appPassword === 'string' ? input.appPassword : DEFAULT_CONFIG.appPassword;
 
   return {
     roots: roots.length ? [...new Set(roots.map((root) => path.resolve(root)))] : DEFAULT_CONFIG.roots,
     maxDepth,
+    userName,
     githubPat,
     aiApiKey,
-    wakatimeApiKey
+    wakatimeApiKey,
+    appPassword
   };
 }
 

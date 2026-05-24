@@ -75,3 +75,14 @@ server.listen(PORT, () => {
   console.log(`Scanning roots from ${CONFIG_FILE}`);
   startBackgroundWorker();
 });
+
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`\n❌ Port ${PORT} is already in use.`);
+    console.error(`   Another RepoTracker instance may already be running.`);
+    console.error(`   To fix: run  npx kill-port ${PORT}  then try again.\n`);
+    process.exit(1);
+  } else {
+    throw err;
+  }
+});

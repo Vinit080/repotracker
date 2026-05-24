@@ -10,8 +10,9 @@ export const PORT = Number(process.env.PORT || 4177);
 export const DEFAULT_ROOT = path.resolve(__dirname, '..', '..');
 
 export const DEFAULT_CONFIG = {
-  roots: [DEFAULT_ROOT],
+  roots: [],
   maxDepth: 4,
+  userName: '',
   githubPat: '',
   aiApiKey: '',
   wakatimeApiKey: '',
