@@ -17,6 +17,7 @@
 - **📟 Shelby Terminal**: A fully integrated, lightweight slide-up terminal inside the dashboard. Streams processes via native Server-Sent Events (SSE) with zero external terminal-window popups.
 - **⚡ Language-Agnostic Task Runner**: Automatically parses `package.json`, `Makefile`, `Taskfile.yml`, and `scripts/` directories to expose 1-click Quick Actions across Node.js, Python, C++, Go, and more.
 - **💡 Direct Line Feedback**: Embedded, native feedback panel for users to send feature requests directly to the creators, powered silently by Formspree.
+- **🔄 1-Click Auto-Updater**: RepoTracker securely polls GitHub and drops a beautiful banner when new features are released. Click "Update Now" and it automatically pulls the latest code and installs dependencies.
 - **🛡️ Secure by Design**: Runs locally with enterprise-grade security. PBKDF2 hashed passwords, strict session tokens, and zero API credential leakage to the browser.
 - **🔔 Smart Alerts**: A background worker continuously monitors your repos and sends desktop notifications if your code falls behind the remote upstream.
 
