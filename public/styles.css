@@ -361,8 +361,9 @@ textarea:focus {
 
 .repo-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 14px;
+  /* Use auto-fill with a smaller min-width so 4 can comfortably fit on standard screens */
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
 }
 
 .repo-card {
@@ -386,14 +387,24 @@ textarea:focus {
 
 .card-head {
   justify-content: space-between;
+  min-width: 0;
 }
 
 .repo-title {
   min-width: 0;
+  flex: 1;
+}
+
+.repo-title div {
+  min-width: 0;
+  flex: 1;
 }
 
 .repo-title h4 {
   font-size: 1.05rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .path,

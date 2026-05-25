@@ -9,12 +9,14 @@
 ## ✨ Features
 
 - **📡 Automatic Discovery**: Point RepoTracker at your root folders and it instantly maps every Git repository recursively.
+- **📂 Native Folder Browser**: Ditch the manual typing. Use the built-in OS dialog to seamlessly point RepoTracker at your code directories with zero typos.
 - **❤️ Health Scoring**: Repositories are automatically scored based on uncommitted changes, unpushed commits, staleness, and branch health.
 - **🪄 AI Git Sync**: Generate perfectly summarized commit messages instantly via Gemini AI and push changes with a single click.
 - **📊 WakaTime Integration**: See exactly how much time you've spent coding in each repository over the last 7 days.
 - **🔍 Global Search**: Fast `git grep` across all your local repositories at once, and easily find floating `TODO`s or `FIXME`s.
 - **📟 Shelby Terminal**: A fully integrated, lightweight slide-up terminal inside the dashboard. Streams processes via native Server-Sent Events (SSE) with zero external terminal-window popups.
 - **⚡ Language-Agnostic Task Runner**: Automatically parses `package.json`, `Makefile`, `Taskfile.yml`, and `scripts/` directories to expose 1-click Quick Actions across Node.js, Python, C++, Go, and more.
+- **💡 Direct Line Feedback**: Embedded, native feedback panel for users to send feature requests directly to the creators, powered silently by Formspree.
 - **🛡️ Secure by Design**: Runs locally with enterprise-grade security. PBKDF2 hashed passwords, strict session tokens, and zero API credential leakage to the browser.
 - **🔔 Smart Alerts**: A background worker continuously monitors your repos and sends desktop notifications if your code falls behind the remote upstream.
 
@@ -46,6 +48,29 @@ RepoTracker is designed to be completely zero-configuration to start.
 
 4. **Open the Dashboard**
    Navigate to `http://localhost:4177` in your browser. The built-in onboarding screen will guide you through adding your code directories and API keys!
+
+### Configuring your GitHub Token
+
+To enable features like cloning and viewing GitHub Action statuses or PRs, you'll need to provide a Personal Access Token (PAT).
+
+**Option 1: Fine-Grained Token (Recommended)**
+Follow these steps to generate a secure, scoped token:
+1. Go to your GitHub **Settings** > **Developer settings**.
+2. Select **Personal access tokens** > **Fine-grained tokens**, then click **Generate new token**.
+3. Name it "RepoTracker" and set the **Resource owner** to yourself.
+4. Under **Repository access**, select **All repositories** (or specific repos if you prefer).
+5. Under **Repository permissions**, find and set the following 5 permissions to **Read-only**:
+   - Actions
+   - Commit statuses
+   - Contents
+   - Issues
+   - Pull Requests
+6. Click **Generate token** and copy it immediately.
+
+**Option 2: Classic Token**
+Create a token and check the **`repo`** scope box.
+
+*Paste your generated token into the Settings tab of the dashboard.*
 
 ## 🔒 Security First
 

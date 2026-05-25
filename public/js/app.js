@@ -20,6 +20,7 @@ const el = {
   onboardingForm:      document.querySelector('#onboardingForm'),
   onboardingNameInput: document.querySelector('#onboardingNameInput'),
   onboardingRootsInput:document.querySelector('#onboardingRootsInput'),
+  onboardingBrowseBtn: document.querySelector('#onboardingBrowseBtn'),
   onboardingPatInput:  document.querySelector('#onboardingPatInput'),
 
   // Auth
@@ -31,6 +32,7 @@ const el = {
   // Topbar
   scanButton:          document.querySelector('#scanButton'),
   themeToggleBtn:      document.querySelector('#themeToggleBtn'),
+  feedbackBtn:         document.querySelector('#feedbackBtn'),
   logoutBtn:           document.querySelector('#logoutBtn'),
 
   // Repos tab
@@ -52,8 +54,14 @@ const el = {
   standupDialog:       document.querySelector('#standupDialog'),
   standupContent:      document.querySelector('#standupContent'),
 
+  // Feedback tab
+  feedbackDialog:      document.querySelector('#feedbackDialog'),
+  feedbackForm:        document.querySelector('#feedbackForm'),
+  feedbackText:        document.querySelector('#feedbackText'),
+
   // Settings tab
   rootsInput:          document.querySelector('#rootsInput'),
+  settingsBrowseBtn:   document.querySelector('#settingsBrowseBtn'),
   depthInput:          document.querySelector('#depthInput'),
   userNameInput:       document.querySelector('#userNameInput'),
   patInput:            document.querySelector('#patInput'),
@@ -251,9 +259,13 @@ function isStale(repo) {
 }
 
 function matchesFilter(repo) {
+  if (state.filter === 'all') return true;
+  if (state.filter === 'pinned') return repo.pinned;
+  
+  // Cloud repos have no local status, so they don't apply to health filters
+  if (repo.isCloud) return false;
+
   const map = {
-    all:    true,
-    pinned: repo.pinned,
     dirty:  repo.status.dirtyCount > 0,
     ahead:  repo.status.ahead > 0,
     behind: repo.status.behind > 0,
@@ -834,6 +846,75 @@ el.logoutBtn.addEventListener('click', () => {
   localStorage.removeItem('repo_auth');
   location.reload();
 });
+
+// ─── Feedback Form ────────────────────────────────────────────────────────────
+el.feedbackBtn.addEventListener('click', () => {
+  el.feedbackDialog.classList.remove('hidden');
+  el.feedbackText.value = '';
+  el.feedbackText.focus();
+});
+
+el.feedbackForm.addEventListener('submit', async e => {
+  e.preventDefault();
+  const text = el.feedbackText.value.trim();
+  if (!text) return;
+  
+  const submitBtn = el.feedbackForm.querySelector('button[type="submit"]');
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Sending...';
+
+  // REPLACE THESE WITH YOUR ACTUAL FORMSPREE IDs
+  const FORMSPREE_ID_1 = 'mzdwjekj';
+  const FORMSPREE_ID_2 = '';
+
+  try {
+    const promises = [];
+    if (FORMSPREE_ID_1 && FORMSPREE_ID_1 !== 'YOUR_FORMSPREE_ID_1') {
+      promises.push(fetch(`https://formspree.io/f/${FORMSPREE_ID_1}`, {
+        method: 'POST',
+        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text })
+      }));
+    }
+    if (FORMSPREE_ID_2 && FORMSPREE_ID_2 !== 'YOUR_FORMSPREE_ID_2') {
+      promises.push(fetch(`https://formspree.io/f/${FORMSPREE_ID_2}`, {
+        method: 'POST',
+        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text })
+      }));
+    }
+
+    if (promises.length === 0) {
+      showToast('Formspree IDs are not configured in code.', 'error');
+    } else {
+      await Promise.all(promises);
+      showToast('Suggestion sent successfully!', 'success');
+      el.feedbackDialog.classList.add('hidden');
+    }
+  } catch (err) {
+    showToast('Failed to send suggestion.', 'error');
+  }
+
+  submitBtn.disabled = false;
+  submitBtn.textContent = 'Send Suggestion';
+});
+
+// ─── Dialog Pickers ───────────────────────────────────────────────────────────
+async function handleFolderBrowse(textareaElement) {
+  try {
+    const res = await api('/api/dialog/folder', { method: 'POST', body: JSON.stringify({}) });
+    if (res.path) {
+      const current = textareaElement.value;
+      textareaElement.value = current ? current.replace(/[\r\n]+$/, '') + '\n' + res.path : res.path;
+      showToast('Folder added', 'success');
+    }
+  } catch (e) {
+    if (e.message !== 'Canceled') showToast('Browse failed: ' + e.message, 'error');
+  }
+}
+
+el.onboardingBrowseBtn.addEventListener('click', () => handleFolderBrowse(el.onboardingRootsInput));
+el.settingsBrowseBtn.addEventListener('click', () => handleFolderBrowse(el.rootsInput));
 
 // Onboarding form
 el.onboardingForm.addEventListener('submit', async e => {

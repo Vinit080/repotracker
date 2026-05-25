@@ -237,6 +237,31 @@ export async function handleApi(request, response) {
     return;
   }
 
+  if (request.method === 'POST' && requestUrl.pathname === '/api/dialog/folder') {
+    try {
+      let selectedPath = '';
+      if (process.platform === 'win32') {
+        const psCmd = `Add-Type -AssemblyName System.windows.forms; $f = New-Object System.Windows.Forms.FolderBrowserDialog; $f.ShowNewFolderButton = $true; if ($f.ShowDialog() -eq 'OK') { Write-Output $f.SelectedPath }`;
+        const { stdout } = await execFileAsync('powershell', ['-NoProfile', '-Command', psCmd]);
+        selectedPath = stdout.trim();
+      } else if (process.platform === 'darwin') {
+        const { stdout } = await execFileAsync('osascript', ['-e', 'POSIX path of (choose folder)']);
+        selectedPath = stdout.trim();
+      } else {
+        const { stdout } = await execFileAsync('zenity', ['--file-selection', '--directory']);
+        selectedPath = stdout.trim();
+      }
+      if (selectedPath) {
+        sendJson(response, 200, { path: selectedPath });
+      } else {
+        sendJson(response, 200, { path: '', canceled: true });
+      }
+    } catch (err) {
+      sendJson(response, 500, { error: 'Failed to open dialog' });
+    }
+    return;
+  }
+
   if (request.method === 'POST' && requestUrl.pathname === '/api/standup') {
     if (!config.aiApiKey) { sendJson(response, 401, { error: 'No AI API Key configured' }); return; }
     const body = await readRequestJson(request);
