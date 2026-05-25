@@ -8,9 +8,69 @@ import { readJson, writeJson, writeJsonIfMissing, normalizeConfig, readRequestJs
 import { scanRepos, runGit } from '../git.js';
 import { hashPassword, verifyPassword, createSession, isValidSession } from '../security.js';
 import os from 'node:os';
+import { WebSocketServer } from 'ws';
+import * as pty from 'node-pty';
 
 const execFileAsync = promisify(execFile);
-const activeTasks = new Map(); // taskId -> child_process
+const activeTasks = new Map(); // taskId -> ptyProcess
+
+const wss = new WebSocketServer({ noServer: true });
+
+wss.on('connection', (ws, request) => {
+  const url = new URL(request.url, `http://${request.headers.host}`);
+  const taskId = url.searchParams.get('taskId');
+  const termProcess = activeTasks.get(taskId);
+  
+  if (!termProcess) {
+    ws.close(1008, 'Task not found');
+    return;
+  }
+
+  const onData = (data) => ws.send(data);
+  const dataListener = termProcess.onData(onData);
+
+  ws.on('message', (msg) => {
+    try {
+      const data = JSON.parse(msg);
+      if (data.type === 'resize') {
+        termProcess.resize(data.cols, data.rows);
+        return;
+      }
+    } catch {
+      termProcess.write(msg);
+    }
+  });
+
+  ws.on('close', () => {
+    dataListener.dispose();
+  });
+
+  const exitListener = termProcess.onExit(() => {
+    ws.close(1000, 'Process exited');
+    exitListener.dispose();
+  });
+});
+
+export async function handleUpgrade(request, socket, head) {
+  const requestUrl = new URL(request.url, `http://${request.headers.host}`);
+  if (requestUrl.pathname === '/api/tasks/stream') {
+    const config = normalizeConfig(await readJson(CONFIG_FILE, DEFAULT_CONFIG));
+    if (config.appPasswordHash) {
+      const token = requestUrl.searchParams.get('token') || '';
+      if (!isValidSession(token)) {
+        socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+        socket.destroy();
+        return;
+      }
+    }
+
+    wss.handleUpgrade(request, socket, head, (ws) => {
+      wss.emit('connection', ws, request);
+    });
+  } else {
+    socket.destroy();
+  }
+}
 
 // ── Security helpers ──────────────────────────────────────────────────────────
 
@@ -108,7 +168,10 @@ export async function handleApi(request, response) {
   // C1/H2: Session-based auth — raw password is never sent after login
   if (config.appPasswordHash) {
     const authHeader = request.headers.authorization || '';
-    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+    let token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+    if (!token && requestUrl.pathname === '/api/tasks/stream') {
+      token = requestUrl.searchParams.get('token') || '';
+    }
     if (!isValidSession(token)) {
       sendJson(response, 401, { error: 'Unauthorized', userName: config.userName || '' });
       return;
@@ -254,7 +317,8 @@ export async function handleApi(request, response) {
   if (request.method === 'POST' && requestUrl.pathname === '/api/system/apply-update') {
     try {
       await execFileAsync('git', ['pull'], { cwd: process.cwd() });
-      await execFileAsync('npm', ['install'], { cwd: process.cwd(), shell: true });
+      const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+      await execFileAsync(npmCmd, ['install'], { cwd: process.cwd(), shell: false });
       sendJson(response, 200, { ok: true });
       setTimeout(() => process.exit(0), 1000);
     } catch (err) {
@@ -267,7 +331,19 @@ export async function handleApi(request, response) {
     try {
       let selectedPath = '';
       if (process.platform === 'win32') {
-        const psCmd = `Add-Type -AssemblyName System.windows.forms; $f = New-Object System.Windows.Forms.FolderBrowserDialog; $f.ShowNewFolderButton = $true; if ($f.ShowDialog() -eq 'OK') { Write-Output $f.SelectedPath }`;
+        const psCmd = `
+          Add-Type -AssemblyName System.Windows.Forms
+          $f = New-Object System.Windows.Forms.OpenFileDialog
+          $f.ValidateNames = $false
+          $f.CheckFileExists = $false
+          $f.CheckPathExists = $true
+          $f.FileName = 'Select Folder.'
+          $f.Title = 'Select Folder'
+          $f.Filter = 'Folders|\n'
+          if ($f.ShowDialog() -eq 'OK') {
+              Write-Output ([System.IO.Path]::GetDirectoryName($f.FileName))
+          }
+        `;
         const { stdout } = await execFileAsync('powershell', ['-NoProfile', '-Command', psCmd]);
         selectedPath = stdout.trim();
       } else if (process.platform === 'darwin') {
@@ -305,6 +381,36 @@ export async function handleApi(request, response) {
     return;
   }
 
+  if (request.method === 'POST' && requestUrl.pathname === '/api/repos/terminal') {
+    const body = await readRequestJson(request);
+    const repoPath = body.path ? path.resolve(body.path) : '';
+    if (!repoPath || !isPathWithinRoots(repoPath, config.roots)) {
+      sendJson(response, 403, { error: 'Path outside configured roots' });
+      return;
+    }
+    try {
+      await fs.access(repoPath);
+      const taskId = randomBytes(16).toString('hex');
+      const command = process.platform === 'win32' ? 'powershell.exe' : 'bash';
+      
+      const ptyProcess = pty.spawn(command, [], {
+        name: 'xterm-color',
+        cols: 80,
+        rows: 24,
+        cwd: repoPath,
+        env: process.env
+      });
+      activeTasks.set(taskId, ptyProcess);
+
+      ptyProcess.onExit(() => {
+        setTimeout(() => activeTasks.delete(taskId), 10000);
+      });
+
+      sendJson(response, 200, { taskId });
+    } catch { sendJson(response, 404, { error: 'Repository path not found' }); }
+    return;
+  }
+
   if (request.method === 'POST' && requestUrl.pathname === '/api/repos/action') {
     const body = await readRequestJson(request);
     const repoPath = body.path ? path.resolve(body.path) : '';
@@ -325,11 +431,17 @@ export async function handleApi(request, response) {
       const command = process.platform === 'win32' ? 'cmd.exe' : 'sh';
       const args = process.platform === 'win32' ? ['/c', scriptCmd] : ['-c', scriptCmd];
       
-      const child = spawn(command, args, { cwd: repoPath, shell: false });
-      activeTasks.set(taskId, child);
+      const ptyProcess = pty.spawn(command, args, {
+        name: 'xterm-color',
+        cols: 80,
+        rows: 24,
+        cwd: repoPath,
+        env: process.env
+      });
+      activeTasks.set(taskId, ptyProcess);
 
-      child.on('exit', () => {
-        setTimeout(() => activeTasks.delete(taskId), 10000); // keep around for 10s so stream can finish
+      ptyProcess.onExit(() => {
+        setTimeout(() => activeTasks.delete(taskId), 10000); // keep around for 10s
       });
 
       sendJson(response, 200, { taskId });
@@ -351,7 +463,7 @@ export async function handleApi(request, response) {
       const winArgs = [
         '/c',
         'echo Pulling latest code... & git pull & ' +
-        'if exist package.json (echo. & echo Installing NPM dependencies... & npm install) & ' +
+        'if exist package.json (echo. & echo Installing NPM dependencies... & call npm install) & ' +
         'if exist requirements.txt (echo. & echo Installing Python dependencies... & pip install -r requirements.txt) & ' +
         'if exist Cargo.toml (echo. & echo Fetching Cargo dependencies... & cargo fetch) & ' +
         'if exist go.mod (echo. & echo Downloading Go modules... & go mod download)'
@@ -365,50 +477,21 @@ export async function handleApi(request, response) {
         `if [ -f go.mod ]; then echo "\\nDownloading Go modules..."; go mod download; fi`
       ];
       
-      const child = spawn(command, process.platform === 'win32' ? winArgs : macArgs, { cwd: repoPath, shell: false });
-      activeTasks.set(taskId, child);
+      const ptyProcess = pty.spawn(command, process.platform === 'win32' ? winArgs : macArgs, {
+        name: 'xterm-color',
+        cols: 80,
+        rows: 24,
+        cwd: repoPath,
+        env: process.env
+      });
+      activeTasks.set(taskId, ptyProcess);
 
-      child.on('exit', () => {
+      ptyProcess.onExit(() => {
         setTimeout(() => activeTasks.delete(taskId), 10000);
       });
 
       sendJson(response, 200, { taskId });
     } catch (e) { sendJson(response, 404, { error: 'Repository path not found: ' + e.message }); }
-    return;
-  }
-
-  // Shelby Terminal: Stream logs via Server-Sent Events (SSE)
-  if (request.method === 'GET' && requestUrl.pathname === '/api/tasks/stream') {
-    const taskId = requestUrl.searchParams.get('taskId');
-    const child = activeTasks.get(taskId);
-    if (!child) {
-      sendJson(response, 404, { error: 'Task not found or expired' });
-      return;
-    }
-
-    response.writeHead(200, {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive'
-    });
-
-    const sendChunk = (data) => {
-      const text = data.toString().replace(/\r?\n/g, '\\n');
-      response.write(`data: ${text}\n\n`);
-    };
-
-    child.stdout.on('data', sendChunk);
-    child.stderr.on('data', sendChunk);
-
-    child.on('exit', (code) => {
-      response.write(`event: exit\ndata: ${code}\n\n`);
-      response.end();
-    });
-    
-    request.on('close', () => {
-      child.stdout.removeListener('data', sendChunk);
-      child.stderr.removeListener('data', sendChunk);
-    });
     return;
   }
 
@@ -418,14 +501,8 @@ export async function handleApi(request, response) {
     const child = activeTasks.get(body.taskId);
     if (child) {
       try {
-        if (process.platform === 'win32') {
-          spawn('taskkill', ['/pid', child.pid, '/f', '/t']);
-        } else {
-          process.kill(-child.pid); // Kill process group
-        }
-      } catch (e) {
         child.kill();
-      }
+      } catch (e) { }
       activeTasks.delete(body.taskId);
       sendJson(response, 200, { ok: true });
     } else {
@@ -467,11 +544,23 @@ export async function handleApi(request, response) {
       return;
     }
     try {
-      const { stdout } = await execFileAsync('npm', ['audit', '--json'], { cwd: repoPath, maxBuffer: 10 * 1024 * 1024 });
+      const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+      const { stdout } = await execFileAsync(npmCmd, ['audit', '--json'], { 
+        cwd: repoPath, 
+        maxBuffer: 10 * 1024 * 1024,
+        shell: false
+      });
       sendJson(response, 200, JSON.parse(stdout));
     } catch (err) {
-      if (err.stdout) sendJson(response, 200, JSON.parse(err.stdout));
-      else sendJson(response, 500, { error: err.message });
+      if (err.stdout) {
+        try {
+          sendJson(response, 200, JSON.parse(err.stdout));
+        } catch (e) {
+          sendJson(response, 500, { error: 'Invalid JSON output from npm audit' });
+        }
+      } else {
+        sendJson(response, 500, { error: err.message });
+      }
     }
     return;
   }
@@ -593,15 +682,44 @@ export async function handleApi(request, response) {
       await fs.access(targetRoot);
       const targetPath = path.join(targetRoot, repoName);
 
-      const command = process.platform === 'win32' ? 'cmd.exe' : 'sh';
-      // H4: URL is quoted in the shell string; repoName is validated alphanumeric
-      const winArgs = ['/c', 'start', 'cmd.exe', '/k', `echo Cloning... & git clone "${cloneUrl}" "${targetPath}" & echo Done. You can close this window.`];
-      const macArgs = ['-c', `git clone "${cloneUrl}" "${targetPath}" && echo "Done."`];
+      const taskId = randomBytes(16).toString('hex');
+      const ptyProcess = pty.spawn('git', ['clone', '--progress', cloneUrl, targetPath], {
+        name: 'xterm-color',
+        cols: 80,
+        rows: 24,
+        cwd: targetRoot,
+        env: process.env
+      });
+      activeTasks.set(taskId, ptyProcess);
 
-      spawn(command, process.platform === 'win32' ? winArgs : macArgs, { cwd: targetRoot, detached: true, stdio: 'ignore' }).unref();
-      sendJson(response, 200, { ok: true });
+      ptyProcess.onExit(() => {
+        setTimeout(() => activeTasks.delete(taskId), 10000);
+      });
+
+      sendJson(response, 200, { ok: true, taskId });
     } catch (e) {
       sendJson(response, 400, { error: 'Invalid root directory: ' + e.message });
+    }
+    return;
+  }
+
+  if (request.method === 'POST' && requestUrl.pathname === '/api/repos/open') {
+    const body = await readRequestJson(request);
+    const repoPath = body.path ? path.resolve(body.path) : '';
+    if (!repoPath || !isPathWithinRoots(repoPath, config.roots)) {
+      sendJson(response, 403, { error: 'Path outside configured roots' });
+      return;
+    }
+    try {
+      await fs.access(repoPath);
+      let command = 'xdg-open';
+      if (process.platform === 'win32') command = 'explorer';
+      else if (process.platform === 'darwin') command = 'open';
+      
+      spawn(command, [repoPath], { detached: true, stdio: 'ignore' }).unref();
+      sendJson(response, 200, { ok: true });
+    } catch (e) {
+      sendJson(response, 500, { error: 'Failed to open directory: ' + e.message });
     }
     return;
   }
