@@ -237,6 +237,30 @@ export async function handleApi(request, response) {
     return;
   }
 
+  if (request.method === 'GET' && requestUrl.pathname === '/api/system/check-update') {
+    try {
+      await execFileAsync('git', ['fetch'], { cwd: process.cwd() });
+      const { stdout } = await execFileAsync('git', ['rev-list', '--count', 'HEAD..origin/main'], { cwd: process.cwd() });
+      const commitsBehind = parseInt(stdout.trim(), 10) || 0;
+      sendJson(response, 200, { updateAvailable: commitsBehind > 0, commitsBehind });
+    } catch (err) {
+      sendJson(response, 500, { error: 'Failed to check for updates' });
+    }
+    return;
+  }
+
+  if (request.method === 'POST' && requestUrl.pathname === '/api/system/apply-update') {
+    try {
+      await execFileAsync('git', ['pull'], { cwd: process.cwd() });
+      await execFileAsync('npm', ['install'], { cwd: process.cwd(), shell: true });
+      sendJson(response, 200, { ok: true });
+      setTimeout(() => process.exit(0), 1000);
+    } catch (err) {
+      sendJson(response, 500, { error: 'Failed to apply update: ' + err.message });
+    }
+    return;
+  }
+
   if (request.method === 'POST' && requestUrl.pathname === '/api/dialog/folder') {
     try {
       let selectedPath = '';

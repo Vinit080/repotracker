@@ -8,6 +8,15 @@
     <link rel="stylesheet" href="/styles.css">
   </head>
   <body>
+    <!-- SYSTEM UPDATE BANNER -->
+    <div id="systemUpdateBanner" class="hidden" style="background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 70%, transparent)); color: #fff; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; font-weight: 500; font-size: 0.95rem; z-index: 100; position: relative;">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <span style="font-size: 1.2rem;">🎉</span>
+        <span id="updateBannerText">A new update for RepoTracker is available!</span>
+      </div>
+      <button id="applyUpdateBtn" type="button" style="background: rgba(0,0,0,0.2); border: none; color: white; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; transition: background 0.2s;">Update Now</button>
+    </div>
+
     <div class="shell">
       <header class="topbar">
         <div style="display: flex; align-items: center; gap: 16px;">

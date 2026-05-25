@@ -29,6 +29,11 @@ const el = {
   authPasswordInput:   document.querySelector('#authPasswordInput'),
   authGreeting:        document.querySelector('#authGreeting'),
 
+  // Update Banner
+  systemUpdateBanner:  document.querySelector('#systemUpdateBanner'),
+  updateBannerText:    document.querySelector('#updateBannerText'),
+  applyUpdateBtn:      document.querySelector('#applyUpdateBtn'),
+
   // Topbar
   scanButton:          document.querySelector('#scanButton'),
   themeToggleBtn:      document.querySelector('#themeToggleBtn'),
@@ -153,6 +158,39 @@ if (el.shelbyAbortBtn) {
 const dateFormatter = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 const relativeFormatter = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
 
+// ─── Self-Updater ─────────────────────────────────────────────────────────────
+async function checkForAppUpdates() {
+  try {
+    const res = await api('/api/system/check-update');
+    if (res.updateAvailable) {
+      el.systemUpdateBanner.classList.remove('hidden');
+      el.updateBannerText.textContent = `A new update for RepoTracker is available! (${res.commitsBehind} commits behind)`;
+    }
+  } catch (err) {
+    console.error('Failed to check for system updates', err);
+  }
+}
+
+el.applyUpdateBtn?.addEventListener('click', async () => {
+  const btn = el.applyUpdateBtn;
+  const originalText = btn.textContent;
+  btn.textContent = 'Updating...';
+  btn.disabled = true;
+  try {
+    await api('/api/system/apply-update', { method: 'POST', body: JSON.stringify({}) });
+    btn.textContent = 'Success!';
+    btn.style.background = 'var(--success)';
+    setTimeout(() => {
+      alert('Update successful! Please restart your terminal/server to apply the changes.');
+      location.reload();
+    }, 500);
+  } catch (err) {
+    btn.textContent = originalText;
+    btn.disabled = false;
+    showToast('Failed to apply update.', 'error');
+  }
+});
+
 // ─── Toast Notifications (L1: replaces all alert() calls) ────────────────────
 const _toastQueue = [];
 let _toastVisible = false;
@@ -239,6 +277,7 @@ async function scanRepos() {
     fetchTimeline();
     fetchTodos();
     fetchWakatimeStats();
+    checkForAppUpdates();
   } catch (err) {
     el.scanMeta.textContent = err.message;
     if (err.message === 'UNAUTHORIZED') {
