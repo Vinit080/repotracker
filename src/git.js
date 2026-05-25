@@ -147,6 +147,58 @@ function deriveAttention(status, health, lastCommit) {
   return items;
 }
 
+async function detectScripts(repoPath) {
+  const scripts = [];
+
+  // 1. package.json (npm/yarn)
+  try {
+    const pkgText = await fs.readFile(path.join(repoPath, 'package.json'), 'utf8');
+    const pkg = JSON.parse(pkgText);
+    if (pkg.scripts) {
+      for (const name of Object.keys(pkg.scripts)) {
+        scripts.push({ name, runner: 'npm', cmd: `npm run ${name}` });
+      }
+    }
+  } catch {}
+
+  // 2. Makefile (make)
+  try {
+    const makeText = await fs.readFile(path.join(repoPath, 'Makefile'), 'utf8');
+    const matches = [...makeText.matchAll(/^([a-zA-Z0-9_-]+):/gm)];
+    for (const m of matches) {
+      if (m[1] !== '.PHONY') scripts.push({ name: m[1], runner: 'make', cmd: `make ${m[1]}` });
+    }
+  } catch {}
+
+  // 3. Taskfile.yml (task)
+  try {
+    const taskText = await fs.readFile(path.join(repoPath, 'Taskfile.yml'), 'utf8');
+    const matches = [...taskText.matchAll(/^  ([a-zA-Z0-9_-]+):/gm)];
+    for (const m of matches) {
+      scripts.push({ name: m[1], runner: 'task', cmd: `task ${m[1]}` });
+    }
+  } catch {}
+
+  // 4. scripts/ directory (.sh, .bat)
+  try {
+    const entries = await fs.readdir(path.join(repoPath, 'scripts'), { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.isFile() && (entry.name.endsWith('.sh') || entry.name.endsWith('.bat'))) {
+        const cmd = process.platform === 'win32' && entry.name.endsWith('.sh')
+          ? `bash scripts/${entry.name}`
+          : process.platform !== 'win32' && entry.name.endsWith('.bat')
+            ? `cmd.exe /c scripts\\${entry.name}`
+            : process.platform === 'win32'
+              ? `scripts\\${entry.name}`
+              : `./scripts/${entry.name}`;
+        scripts.push({ name: entry.name, runner: 'bash', cmd });
+      }
+    }
+  } catch {}
+
+  return scripts.length ? scripts : null;
+}
+
 export async function summarizeRepo(repoPath, meta = {}) {
   const [branch, remoteUrl, upstream, statusText, commitCountText, lastCommitText] = await Promise.all([
     runGit(repoPath, ['branch', '--show-current']),
@@ -161,12 +213,7 @@ export async function summarizeRepo(repoPath, meta = {}) {
   const languages = await detectLanguages(repoPath);
   const health = calculateHealth({ status, remoteUrl, lastCommit });
   
-  let pkgScripts = null;
-  try {
-    const pkgText = await fs.readFile(path.join(repoPath, 'package.json'), 'utf8');
-    const pkg = JSON.parse(pkgText);
-    pkgScripts = pkg.scripts ? Object.keys(pkg.scripts) : [];
-  } catch {}
+  const scripts = await detectScripts(repoPath);
 
   return {
     path: repoPath,
@@ -179,7 +226,7 @@ export async function summarizeRepo(repoPath, meta = {}) {
     languages,
     status,
     health,
-    scripts: pkgScripts,
+    scripts,
     attention: deriveAttention(status, health, lastCommit),
     pinned: Boolean(meta.pinned),
     note: meta.note || '',

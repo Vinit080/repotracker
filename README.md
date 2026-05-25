@@ -13,6 +13,8 @@
 - **🪄 AI Git Sync**: Generate perfectly summarized commit messages instantly via Gemini AI and push changes with a single click.
 - **📊 WakaTime Integration**: See exactly how much time you've spent coding in each repository over the last 7 days.
 - **🔍 Global Search**: Fast `git grep` across all your local repositories at once, and easily find floating `TODO`s or `FIXME`s.
+- **📟 Shelby Terminal**: A fully integrated, lightweight slide-up terminal inside the dashboard. Streams processes via native Server-Sent Events (SSE) with zero external terminal-window popups.
+- **⚡ Language-Agnostic Task Runner**: Automatically parses `package.json`, `Makefile`, `Taskfile.yml`, and `scripts/` directories to expose 1-click Quick Actions across Node.js, Python, C++, Go, and more.
 - **🛡️ Secure by Design**: Runs locally with enterprise-grade security. PBKDF2 hashed passwords, strict session tokens, and zero API credential leakage to the browser.
 - **🔔 Smart Alerts**: A background worker continuously monitors your repos and sends desktop notifications if your code falls behind the remote upstream.
 

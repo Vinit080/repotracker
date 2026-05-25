@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>RepoTracker</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎯</text></svg>">
     <link rel="stylesheet" href="/styles.css">
   </head>
   <body>
@@ -309,6 +310,18 @@
         </div>
       </article>
     </template>
+
+    <!-- SHELBY TERMINAL -->
+    <div id="shelbyTerminal" class="shelby-panel hidden">
+      <div class="shelby-header">
+        <span class="shelby-title">Shelby Terminal <span class="muted" id="shelbyStatus"></span></span>
+        <div style="display:flex; gap: 8px;">
+          <button id="shelbyAbortBtn" class="ghost hidden" style="color: var(--danger);">Abort</button>
+          <button id="shelbyCloseBtn" class="icon-button" style="padding: 4px 8px;">x</button>
+        </div>
+      </div>
+      <pre id="shelbyOutput" class="shelby-output"></pre>
+    </div>
 
     <script src="/js/app.js" type="module"></script>
   </body>

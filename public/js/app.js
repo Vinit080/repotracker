@@ -69,7 +69,77 @@ const el = {
   cloneDialog:         document.querySelector('#cloneDialog'),
   cloneDestSelect:     document.querySelector('#cloneDestSelect'),
   confirmCloneButton:  document.querySelector('#confirmCloneButton'),
+  
+  // Shelby Terminal
+  shelbyTerminal:      document.querySelector('#shelbyTerminal'),
+  shelbyOutput:        document.querySelector('#shelbyOutput'),
+  shelbyStatus:        document.querySelector('#shelbyStatus'),
+  shelbyCloseBtn:      document.querySelector('#shelbyCloseBtn'),
+  shelbyAbortBtn:      document.querySelector('#shelbyAbortBtn'),
 };
+
+// ─── Shelby Terminal ──────────────────────────────────────────────────────────
+let activeShelbyTask = null;
+let shelbyEventSource = null;
+
+function openShelby(title, taskId) {
+  el.shelbyStatus.textContent = `— ${title}`;
+  el.shelbyOutput.textContent = '';
+  el.shelbyTerminal.classList.remove('hidden');
+  el.shelbyAbortBtn.classList.remove('hidden');
+  activeShelbyTask = taskId;
+
+  if (shelbyEventSource) shelbyEventSource.close();
+  
+  shelbyEventSource = new EventSource(`/api/tasks/stream?taskId=${taskId}`);
+  
+  shelbyEventSource.onmessage = (e) => {
+    el.shelbyOutput.textContent += e.data + '\n';
+    el.shelbyOutput.scrollTop = el.shelbyOutput.scrollHeight;
+  };
+  
+  shelbyEventSource.addEventListener('exit', (e) => {
+    const code = e.data;
+    el.shelbyOutput.textContent += `\n[Process exited with code ${code}]\n`;
+    el.shelbyOutput.scrollTop = el.shelbyOutput.scrollHeight;
+    el.shelbyAbortBtn.classList.add('hidden');
+    shelbyEventSource.close();
+    activeShelbyTask = null;
+  });
+
+  shelbyEventSource.onerror = () => {
+    el.shelbyOutput.textContent += `\n[Stream disconnected]\n`;
+    el.shelbyOutput.scrollTop = el.shelbyOutput.scrollHeight;
+    el.shelbyAbortBtn.classList.add('hidden');
+    shelbyEventSource.close();
+    activeShelbyTask = null;
+  };
+}
+
+if (el.shelbyCloseBtn) {
+  el.shelbyCloseBtn.addEventListener('click', () => {
+    el.shelbyTerminal.classList.add('hidden');
+  });
+}
+
+if (el.shelbyAbortBtn) {
+  el.shelbyAbortBtn.addEventListener('click', async () => {
+    if (activeShelbyTask) {
+      el.shelbyAbortBtn.disabled = true;
+      el.shelbyAbortBtn.textContent = 'Killing...';
+      try {
+        await api('/api/tasks/kill', { method: 'POST', body: JSON.stringify({ taskId: activeShelbyTask }) });
+        el.shelbyOutput.textContent += `\n[Process killed by user]\n`;
+        el.shelbyOutput.scrollTop = el.shelbyOutput.scrollHeight;
+      } catch {
+        showToast('Failed to kill process', 'error');
+      }
+      el.shelbyAbortBtn.textContent = 'Abort';
+      el.shelbyAbortBtn.disabled = false;
+      el.shelbyAbortBtn.classList.add('hidden');
+    }
+  });
+}
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
 const dateFormatter = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
@@ -386,16 +456,20 @@ function renderRepoCard(repo) {
   tagInput.value = (repo.tags || []).join(', ');
   note.value = repo.note || '';
 
-  // Quick actions
+  // Quick actions (Shelby)
   if (repo.scripts?.length) {
     qaSelect.classList.remove('hidden');
     qaSelect.innerHTML = '<option value="">Quick Actions...</option>'
-      + repo.scripts.map(s => `<option value="${escapeAttribute(s)}">npm run ${escapeHtml(s)}</option>`).join('');
+      + repo.scripts.map((s, i) => `<option value="${i}">[${escapeHtml(s.runner)}] ${escapeHtml(s.name)}</option>`).join('');
     qaSelect.addEventListener('change', async e => {
-      const script = e.target.value;
-      if (!script) return;
+      const idx = e.target.value;
+      if (idx === '') return;
+      const scriptObj = repo.scripts[idx];
       qaSelect.value = '';
-      try { await api('/api/repos/action', { method: 'POST', body: JSON.stringify({ path: repo.path, script }) }); }
+      try { 
+        const res = await api('/api/repos/action', { method: 'POST', body: JSON.stringify({ path: repo.path, scriptCmd: scriptObj.cmd }) }); 
+        openShelby(scriptObj.cmd, res.taskId);
+      }
       catch (err) { showToast(`Failed to start: ${err.message}`, 'error'); }
     });
   }
@@ -438,8 +512,8 @@ function renderRepoCard(repo) {
 
     setupBtn.addEventListener('click', async () => {
       try {
-        await api('/api/repos/setup', { method: 'POST', body: JSON.stringify({ path: repo.path }) });
-        showToast(`Pull & Setup started for ${repo.name}.`, 'success');
+        const res = await api('/api/repos/setup', { method: 'POST', body: JSON.stringify({ path: repo.path }) });
+        openShelby('Auto-Setup', res.taskId);
       } catch (err) { showToast(`Auto-setup failed: ${err.message}`, 'error'); }
     });
 

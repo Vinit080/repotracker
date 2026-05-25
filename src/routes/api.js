@@ -2,6 +2,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { spawn, execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { randomBytes } from 'node:crypto';
 import { CONFIG_FILE, META_FILE, DEFAULT_CONFIG } from '../constants.js';
 import { readJson, writeJson, writeJsonIfMissing, normalizeConfig, readRequestJson, sendJson, sanitizeConfigForResponse } from '../utils.js';
 import { scanRepos, runGit } from '../git.js';
@@ -9,6 +10,7 @@ import { hashPassword, verifyPassword, createSession, isValidSession } from '../
 import os from 'node:os';
 
 const execFileAsync = promisify(execFile);
+const activeTasks = new Map(); // taskId -> child_process
 
 // ── Security helpers ──────────────────────────────────────────────────────────
 
@@ -255,30 +257,31 @@ export async function handleApi(request, response) {
   if (request.method === 'POST' && requestUrl.pathname === '/api/repos/action') {
     const body = await readRequestJson(request);
     const repoPath = body.path ? path.resolve(body.path) : '';
+    const scriptCmd = body.scriptCmd; // New parameter passed from frontend
+
     if (!repoPath || !isPathWithinRoots(repoPath, config.roots)) {
       sendJson(response, 403, { error: 'Path outside configured roots' });
       return;
     }
-    // Allowlist: script must exist in the repo's own package.json
-    let validScripts = [];
-    try {
-      const pkgText = await fs.readFile(path.join(repoPath, 'package.json'), 'utf8');
-      const pkg = JSON.parse(pkgText);
-      validScripts = Object.keys(pkg.scripts || {});
-    } catch {
-      sendJson(response, 400, { error: 'Could not read package.json in repository' });
+    if (!scriptCmd || typeof scriptCmd !== 'string') {
+      sendJson(response, 400, { error: 'Missing or invalid script command' });
       return;
     }
-    if (!validScripts.includes(body.script)) {
-      sendJson(response, 400, { error: `Unknown script. Valid scripts: ${validScripts.join(', ')}` });
-      return;
-    }
+
     try {
       await fs.access(repoPath);
+      const taskId = randomBytes(16).toString('hex');
       const command = process.platform === 'win32' ? 'cmd.exe' : 'sh';
-      const args = process.platform === 'win32' ? ['/c', 'start', 'cmd.exe', '/k', `npm run ${body.script}`] : ['-c', `npm run ${body.script}`];
-      spawn(command, args, { cwd: repoPath, detached: true, stdio: 'ignore' }).unref();
-      sendJson(response, 200, { ok: true });
+      const args = process.platform === 'win32' ? ['/c', scriptCmd] : ['-c', scriptCmd];
+      
+      const child = spawn(command, args, { cwd: repoPath, shell: false });
+      activeTasks.set(taskId, child);
+
+      child.on('exit', () => {
+        setTimeout(() => activeTasks.delete(taskId), 10000); // keep around for 10s so stream can finish
+      });
+
+      sendJson(response, 200, { taskId });
     } catch { sendJson(response, 404, { error: 'Repository path not found' }); }
     return;
   }
@@ -292,9 +295,10 @@ export async function handleApi(request, response) {
     }
     try {
       await fs.access(repoPath);
+      const taskId = randomBytes(16).toString('hex');
       const command = process.platform === 'win32' ? 'cmd.exe' : 'sh';
       const winArgs = [
-        '/c', 'start', 'cmd.exe', '/k',
+        '/c',
         'echo Pulling latest code... & git pull & ' +
         'if exist package.json (echo. & echo Installing NPM dependencies... & npm install) & ' +
         'if exist requirements.txt (echo. & echo Installing Python dependencies... & pip install -r requirements.txt) & ' +
@@ -309,10 +313,73 @@ export async function handleApi(request, response) {
         `if [ -f Cargo.toml ]; then echo "\\nFetching Cargo dependencies..."; cargo fetch; fi; ` +
         `if [ -f go.mod ]; then echo "\\nDownloading Go modules..."; go mod download; fi`
       ];
-      const args = process.platform === 'win32' ? winArgs : macArgs;
-      spawn(command, args, { cwd: repoPath, detached: true, stdio: 'ignore' }).unref();
-      sendJson(response, 200, { ok: true });
+      
+      const child = spawn(command, process.platform === 'win32' ? winArgs : macArgs, { cwd: repoPath, shell: false });
+      activeTasks.set(taskId, child);
+
+      child.on('exit', () => {
+        setTimeout(() => activeTasks.delete(taskId), 10000);
+      });
+
+      sendJson(response, 200, { taskId });
     } catch (e) { sendJson(response, 404, { error: 'Repository path not found: ' + e.message }); }
+    return;
+  }
+
+  // Shelby Terminal: Stream logs via Server-Sent Events (SSE)
+  if (request.method === 'GET' && requestUrl.pathname === '/api/tasks/stream') {
+    const taskId = requestUrl.searchParams.get('taskId');
+    const child = activeTasks.get(taskId);
+    if (!child) {
+      sendJson(response, 404, { error: 'Task not found or expired' });
+      return;
+    }
+
+    response.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive'
+    });
+
+    const sendChunk = (data) => {
+      const text = data.toString().replace(/\r?\n/g, '\\n');
+      response.write(`data: ${text}\n\n`);
+    };
+
+    child.stdout.on('data', sendChunk);
+    child.stderr.on('data', sendChunk);
+
+    child.on('exit', (code) => {
+      response.write(`event: exit\ndata: ${code}\n\n`);
+      response.end();
+    });
+    
+    request.on('close', () => {
+      child.stdout.removeListener('data', sendChunk);
+      child.stderr.removeListener('data', sendChunk);
+    });
+    return;
+  }
+
+  // Shelby Terminal: Kill task
+  if (request.method === 'POST' && requestUrl.pathname === '/api/tasks/kill') {
+    const body = await readRequestJson(request);
+    const child = activeTasks.get(body.taskId);
+    if (child) {
+      try {
+        if (process.platform === 'win32') {
+          spawn('taskkill', ['/pid', child.pid, '/f', '/t']);
+        } else {
+          process.kill(-child.pid); // Kill process group
+        }
+      } catch (e) {
+        child.kill();
+      }
+      activeTasks.delete(body.taskId);
+      sendJson(response, 200, { ok: true });
+    } else {
+      sendJson(response, 404, { error: 'Task not found' });
+    }
     return;
   }
 
