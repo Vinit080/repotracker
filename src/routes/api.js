@@ -16,9 +16,11 @@ const activeTasks = new Map(); // taskId -> child_process
 
 /** Ensure a resolved path is inside one of the user's configured root dirs. */
 function isPathWithinRoots(resolvedPath, roots) {
+  const norm = (p) => process.platform === 'win32' ? p.toLowerCase() : p;
+  const target = norm(resolvedPath);
   return roots.some(root => {
-    const r = path.resolve(root);
-    return resolvedPath === r || resolvedPath.startsWith(r + path.sep);
+    const r = norm(path.resolve(root));
+    return target === r || target.startsWith(r + path.sep);
   });
 }
 

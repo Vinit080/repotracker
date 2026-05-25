@@ -160,6 +160,10 @@ menu {
   flex-wrap: wrap;
 }
 
+.card-actions {
+  margin-top: auto;
+}
+
 .primary,
 .ghost,
 .filter,
@@ -369,7 +373,8 @@ textarea:focus {
 .repo-card {
   border-radius: 8px;
   padding: 18px;
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 14px;
 }
 

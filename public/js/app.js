@@ -13,82 +13,82 @@ const state = {
 
 // ─── DOM References ───────────────────────────────────────────────────────────
 const el = {
-  shell:               document.querySelector('.shell'),
-  landingScreen:       document.querySelector('#landingScreen'),
+  shell: document.querySelector('.shell'),
+  landingScreen: document.querySelector('#landingScreen'),
 
   // Onboarding
-  onboardingForm:      document.querySelector('#onboardingForm'),
+  onboardingForm: document.querySelector('#onboardingForm'),
   onboardingNameInput: document.querySelector('#onboardingNameInput'),
-  onboardingRootsInput:document.querySelector('#onboardingRootsInput'),
+  onboardingRootsInput: document.querySelector('#onboardingRootsInput'),
   onboardingBrowseBtn: document.querySelector('#onboardingBrowseBtn'),
-  onboardingPatInput:  document.querySelector('#onboardingPatInput'),
+  onboardingPatInput: document.querySelector('#onboardingPatInput'),
 
   // Auth
-  authDialog:          document.querySelector('#authDialog'),
-  authForm:            document.querySelector('#authForm'),
-  authPasswordInput:   document.querySelector('#authPasswordInput'),
-  authGreeting:        document.querySelector('#authGreeting'),
+  authDialog: document.querySelector('#authDialog'),
+  authForm: document.querySelector('#authForm'),
+  authPasswordInput: document.querySelector('#authPasswordInput'),
+  authGreeting: document.querySelector('#authGreeting'),
 
   // Update Banner
-  systemUpdateBanner:  document.querySelector('#systemUpdateBanner'),
-  updateBannerText:    document.querySelector('#updateBannerText'),
-  applyUpdateBtn:      document.querySelector('#applyUpdateBtn'),
+  systemUpdateBanner: document.querySelector('#systemUpdateBanner'),
+  updateBannerText: document.querySelector('#updateBannerText'),
+  applyUpdateBtn: document.querySelector('#applyUpdateBtn'),
 
   // Topbar
-  scanButton:          document.querySelector('#scanButton'),
-  themeToggleBtn:      document.querySelector('#themeToggleBtn'),
-  feedbackBtn:         document.querySelector('#feedbackBtn'),
-  logoutBtn:           document.querySelector('#logoutBtn'),
+  scanButton: document.querySelector('#scanButton'),
+  themeToggleBtn: document.querySelector('#themeToggleBtn'),
+  feedbackBtn: document.querySelector('#feedbackBtn'),
+  logoutBtn: document.querySelector('#logoutBtn'),
 
   // Repos tab
-  scanMeta:            document.querySelector('#scanMeta'),
-  spotlight:           document.querySelector('#spotlight'),
-  metricsGrid:         document.querySelector('#metricsGrid'),
-  searchInput:         document.querySelector('#searchInput'),
-  filterRow:           document.querySelector('#filterRow'),
-  repoGrid:            document.querySelector('#repoGrid'),
-  resultCount:         document.querySelector('#resultCount'),
-  repoCardTemplate:    document.querySelector('#repoCardTemplate'),
+  scanMeta: document.querySelector('#scanMeta'),
+  spotlight: document.querySelector('#spotlight'),
+  metricsGrid: document.querySelector('#metricsGrid'),
+  searchInput: document.querySelector('#searchInput'),
+  filterRow: document.querySelector('#filterRow'),
+  repoGrid: document.querySelector('#repoGrid'),
+  resultCount: document.querySelector('#resultCount'),
+  repoCardTemplate: document.querySelector('#repoCardTemplate'),
 
   // Insights tab
-  attentionList:       document.querySelector('#attentionList'),
-  languageList:        document.querySelector('#languageList'),
-  timelineList:        document.querySelector('#timelineList'),
-  todoList:            document.querySelector('#todoList'),
-  standupButton:       document.querySelector('#standupButton'),
-  standupDialog:       document.querySelector('#standupDialog'),
-  standupContent:      document.querySelector('#standupContent'),
+  attentionList: document.querySelector('#attentionList'),
+  languageList: document.querySelector('#languageList'),
+  timelineList: document.querySelector('#timelineList'),
+  todoList: document.querySelector('#todoList'),
+  standupButton: document.querySelector('#standupButton'),
+  standupDialog: document.querySelector('#standupDialog'),
+  standupContent: document.querySelector('#standupContent'),
 
   // Feedback tab
-  feedbackDialog:      document.querySelector('#feedbackDialog'),
-  feedbackForm:        document.querySelector('#feedbackForm'),
-  feedbackText:        document.querySelector('#feedbackText'),
+  feedbackDialog: document.querySelector('#feedbackDialog'),
+  feedbackForm: document.querySelector('#feedbackForm'),
+  feedbackText: document.querySelector('#feedbackText'),
 
   // Settings tab
-  rootsInput:          document.querySelector('#rootsInput'),
-  settingsBrowseBtn:   document.querySelector('#settingsBrowseBtn'),
-  depthInput:          document.querySelector('#depthInput'),
-  userNameInput:       document.querySelector('#userNameInput'),
-  patInput:            document.querySelector('#patInput'),
-  aiKeyInput:          document.querySelector('#aiKeyInput'),
-  wakaKeyInput:        document.querySelector('#wakaKeyInput'),
-  appPasswordInput:    document.querySelector('#appPasswordInput'),
-  saveSettingsButton:  document.querySelector('#saveSettingsButton'),
+  rootsInput: document.querySelector('#rootsInput'),
+  settingsBrowseBtn: document.querySelector('#settingsBrowseBtn'),
+  depthInput: document.querySelector('#depthInput'),
+  userNameInput: document.querySelector('#userNameInput'),
+  patInput: document.querySelector('#patInput'),
+  aiKeyInput: document.querySelector('#aiKeyInput'),
+  wakaKeyInput: document.querySelector('#wakaKeyInput'),
+  appPasswordInput: document.querySelector('#appPasswordInput'),
+  saveSettingsButton: document.querySelector('#saveSettingsButton'),
 
   // Modals
-  searchDialog:        document.querySelector('#searchDialog'),
-  globalSearchInput:   document.querySelector('#globalSearchInput'),
-  searchResults:       document.querySelector('#searchResults'),
-  cloneDialog:         document.querySelector('#cloneDialog'),
-  cloneDestSelect:     document.querySelector('#cloneDestSelect'),
-  confirmCloneButton:  document.querySelector('#confirmCloneButton'),
-  
+  searchDialog: document.querySelector('#searchDialog'),
+  globalSearchInput: document.querySelector('#globalSearchInput'),
+  searchResults: document.querySelector('#searchResults'),
+  cloneDialog: document.querySelector('#cloneDialog'),
+  cloneDestSelect: document.querySelector('#cloneDestSelect'),
+  confirmCloneButton: document.querySelector('#confirmCloneButton'),
+
   // Shelby Terminal
-  shelbyTerminal:      document.querySelector('#shelbyTerminal'),
-  shelbyOutput:        document.querySelector('#shelbyOutput'),
-  shelbyStatus:        document.querySelector('#shelbyStatus'),
-  shelbyCloseBtn:      document.querySelector('#shelbyCloseBtn'),
-  shelbyAbortBtn:      document.querySelector('#shelbyAbortBtn'),
+  shelbyTerminal: document.querySelector('#shelbyTerminal'),
+  shelbyOutput: document.querySelector('#shelbyOutput'),
+  shelbyStatus: document.querySelector('#shelbyStatus'),
+  shelbyCloseBtn: document.querySelector('#shelbyCloseBtn'),
+  shelbyAbortBtn: document.querySelector('#shelbyAbortBtn'),
 };
 
 // ─── Shelby Terminal ──────────────────────────────────────────────────────────
@@ -103,14 +103,14 @@ function openShelby(title, taskId) {
   activeShelbyTask = taskId;
 
   if (shelbyEventSource) shelbyEventSource.close();
-  
+
   shelbyEventSource = new EventSource(`/api/tasks/stream?taskId=${taskId}`);
-  
+
   shelbyEventSource.onmessage = (e) => {
     el.shelbyOutput.textContent += e.data + '\n';
     el.shelbyOutput.scrollTop = el.shelbyOutput.scrollHeight;
   };
-  
+
   shelbyEventSource.addEventListener('exit', (e) => {
     const code = e.data;
     el.shelbyOutput.textContent += `\n[Process exited with code ${code}]\n`;
@@ -233,13 +233,13 @@ function normalizeRemote(url) {
 async function loadConfig() {
   try {
     state.config = await api('/api/config');
-    el.rootsInput.value       = (state.config.roots || []).join('\n');
-    el.depthInput.value       = state.config.maxDepth || 4;
-    el.userNameInput.value    = state.config.userName || '';
+    el.rootsInput.value = (state.config.roots || []).join('\n');
+    el.depthInput.value = state.config.maxDepth || 4;
+    el.userNameInput.value = state.config.userName || '';
     // C2: API keys arrive masked ('••• (saved)') or as empty string
-    el.patInput.value         = state.config.githubPat || '';
-    el.aiKeyInput.value       = state.config.aiApiKey || '';
-    el.wakaKeyInput.value     = state.config.wakatimeApiKey || '';
+    el.patInput.value = state.config.githubPat || '';
+    el.aiKeyInput.value = state.config.aiApiKey || '';
+    el.wakaKeyInput.value = state.config.wakatimeApiKey || '';
     // C2: password hash never arrives from server; use appPasswordSet boolean
     el.appPasswordInput.value = '';
     el.appPasswordInput.placeholder = state.config.appPasswordSet
@@ -300,17 +300,17 @@ function isStale(repo) {
 function matchesFilter(repo) {
   if (state.filter === 'all') return true;
   if (state.filter === 'pinned') return repo.pinned;
-  
+
   // Cloud repos have no local status, so they don't apply to health filters
   if (repo.isCloud) return false;
 
   const map = {
-    dirty:  repo.status.dirtyCount > 0,
-    ahead:  repo.status.ahead > 0,
+    dirty: repo.status.dirtyCount > 0,
+    ahead: repo.status.ahead > 0,
     behind: repo.status.behind > 0,
-    stale:  isStale(repo),
-    clean:  !repo.status.dirtyCount && !repo.status.ahead && !repo.status.behind,
-    risk:   isStale(repo) || repo.status.behind > 10 || repo.status.dirtyCount > 10 || repo.github?.ci === 'failure'
+    stale: isStale(repo),
+    clean: !repo.status.dirtyCount && !repo.status.ahead && !repo.status.behind,
+    risk: isStale(repo) || repo.status.behind > 10 || repo.status.dirtyCount > 10 || repo.github?.ci === 'failure'
   };
   return Boolean(map[state.filter]);
 }
@@ -343,10 +343,10 @@ function render() {
 function renderMetrics() {
   const repos = state.repos;
   const items = [
-    ['Total repos',     repos.length],
-    ['Need attention',  repos.filter(r => r.health < 75 || r.status.dirtyCount || r.status.behind).length],
+    ['Total repos', repos.length],
+    ['Need attention', repos.filter(r => r.health < 75 || r.status.dirtyCount || r.status.behind).length],
     ['Dirty worktrees', repos.filter(r => r.status.dirtyCount > 0).length],
-    ['Sync drift',      repos.filter(r => r.status.ahead || r.status.behind).length]
+    ['Sync drift', repos.filter(r => r.status.ahead || r.status.behind).length]
   ];
   el.metricsGrid.replaceChildren(...items.map(([label, value]) => {
     const card = document.createElement('article');
@@ -395,11 +395,11 @@ function renderInsights() {
   el.attentionList.replaceChildren(
     ...(attention.length
       ? attention.map(r => {
-          const d = document.createElement('div');
-          d.className = 'attention-item';
-          d.innerHTML = `<span>${escapeHtml(r.name)}</span><strong>${r.health}</strong>`;
-          return d;
-        })
+        const d = document.createElement('div');
+        d.className = 'attention-item';
+        d.innerHTML = `<span>${escapeHtml(r.name)}</span><strong>${r.health}</strong>`;
+        return d;
+      })
       : [emptySmall('Everything looks calm.')])
   );
 
@@ -413,11 +413,11 @@ function renderInsights() {
   el.languageList.replaceChildren(
     ...(langItems.length
       ? langItems.map(([lang, count]) => {
-          const d = document.createElement('div');
-          d.className = 'language-pill';
-          d.innerHTML = `<span>${escapeHtml(lang)}</span><strong>${count}</strong>`;
-          return d;
-        })
+        const d = document.createElement('div');
+        d.className = 'language-pill';
+        d.innerHTML = `<span>${escapeHtml(lang)}</span><strong>${count}</strong>`;
+        return d;
+      })
       : [emptySmall('No language data yet.')])
   );
 }
@@ -437,26 +437,26 @@ function renderRepos(repos) {
 
 function renderRepoCard(repo) {
   const fragment = el.repoCardTemplate.content.cloneNode(true);
-  const card        = fragment.querySelector('.repo-card');
-  const title       = fragment.querySelector('h4');
-  const pathText    = fragment.querySelector('.path');
-  const pinButton   = fragment.querySelector('.pin-button');
-  const ring        = fragment.querySelector('.health-ring');
-  const ringText    = fragment.querySelector('.health-ring span');
-  const chips       = fragment.querySelector('.chips');
-  const ghStats     = fragment.querySelector('.github-stats');
-  const wakaStats   = fragment.querySelector('.wakatime-stats');
-  const statusLine  = fragment.querySelector('.status-line');
-  const commitLine  = fragment.querySelector('.commit-line');
-  const tagInput    = fragment.querySelector('.tag-editor input');
-  const note        = fragment.querySelector('.note');
-  const openButton  = fragment.querySelector('.open-button');
-  const remoteLink  = fragment.querySelector('.remote-link');
-  const qaSelect    = fragment.querySelector('.quick-actions-select');
-  const auditBtn    = fragment.querySelector('.audit-button');
-  const setupBtn    = fragment.querySelector('.setup-button');
-  const aisyncBtn   = fragment.querySelector('.aisync-button');
-  const cloneBtn    = fragment.querySelector('.clone-button');
+  const card = fragment.querySelector('.repo-card');
+  const title = fragment.querySelector('h4');
+  const pathText = fragment.querySelector('.path');
+  const pinButton = fragment.querySelector('.pin-button');
+  const ring = fragment.querySelector('.health-ring');
+  const ringText = fragment.querySelector('.health-ring span');
+  const chips = fragment.querySelector('.chips');
+  const ghStats = fragment.querySelector('.github-stats');
+  const wakaStats = fragment.querySelector('.wakatime-stats');
+  const statusLine = fragment.querySelector('.status-line');
+  const commitLine = fragment.querySelector('.commit-line');
+  const tagInput = fragment.querySelector('.tag-editor input');
+  const note = fragment.querySelector('.note');
+  const openButton = fragment.querySelector('.open-button');
+  const remoteLink = fragment.querySelector('.remote-link');
+  const qaSelect = fragment.querySelector('.quick-actions-select');
+  const auditBtn = fragment.querySelector('.audit-button');
+  const setupBtn = fragment.querySelector('.setup-button');
+  const aisyncBtn = fragment.querySelector('.aisync-button');
+  const cloneBtn = fragment.querySelector('.clone-button');
 
   title.textContent = repo.name;
   pathText.textContent = repo.path;
@@ -478,7 +478,7 @@ function renderRepoCard(repo) {
   if (repo.github) {
     ghStats.classList.remove('hidden');
     const ci = repo.github.ci === 'failure' ? '<span class="chip danger">CI Failing</span>'
-             : repo.github.ci === 'success'  ? '<span class="chip info">CI Passing</span>' : '';
+      : repo.github.ci === 'success' ? '<span class="chip info">CI Passing</span>' : '';
     ghStats.innerHTML = `<div class="gh-metrics">
       <span class="gh-stat" title="Stars">★ ${repo.github.stars}</span>
       <span class="gh-stat" title="Open Issues">⨀ ${repo.github.issues}</span>
@@ -517,8 +517,8 @@ function renderRepoCard(repo) {
       if (idx === '') return;
       const scriptObj = repo.scripts[idx];
       qaSelect.value = '';
-      try { 
-        const res = await api('/api/repos/action', { method: 'POST', body: JSON.stringify({ path: repo.path, scriptCmd: scriptObj.cmd }) }); 
+      try {
+        const res = await api('/api/repos/action', { method: 'POST', body: JSON.stringify({ path: repo.path, scriptCmd: scriptObj.cmd }) });
         openShelby(scriptObj.cmd, res.taskId);
       }
       catch (err) { showToast(`Failed to start: ${err.message}`, 'error'); }
@@ -597,13 +597,21 @@ function renderRepoCard(repo) {
       });
     }
 
-    openButton.addEventListener('click', () => openRepo(repo.path));
+    openButton.addEventListener('click', () => {
+      api('/api/repos/open', { method: 'POST', body: JSON.stringify({ path: repo.path }) });
+    });
   }
 
   // M3: validate remote is a real https:// URL before assigning to href
-  const remote = normalizeRemote(repo.remoteUrl);
-  if (remote && /^https:\/\//.test(remote)) remoteLink.href = remote;
-  else remoteLink.classList.add('hidden');
+  let remote = repo.remoteUrl;
+  if (remote && remote.startsWith('git@github.com:')) {
+    remote = 'https://github.com/' + remote.slice(15).replace(/\.git$/, '');
+  }
+  if (remote && /^https:\/\//.test(remote)) {
+    remoteLink.href = remote;
+  } else {
+    remoteLink.classList.add('hidden');
+  }
 
   card.dataset.path = repo.path;
   return fragment;
@@ -625,18 +633,18 @@ async function openRepo(repoPath) {
 // ─── Save Settings ────────────────────────────────────────────────────────────
 async function saveSettings(event) {
   if (event) event.preventDefault();
-  const roots          = el.rootsInput.value.split(/\r?\n/).map(r => r.trim()).filter(Boolean);
-  const maxDepth       = parseInt(el.depthInput.value, 10) || 4;
-  const userName       = el.userNameInput.value.trim();
-  const githubPat      = el.patInput.value.trim();
-  const aiApiKey       = el.aiKeyInput.value.trim();
+  const roots = el.rootsInput.value.split(/\r?\n/).map(r => r.trim()).filter(Boolean);
+  const maxDepth = parseInt(el.depthInput.value, 10) || 4;
+  const userName = el.userNameInput.value.trim();
+  const githubPat = el.patInput.value.trim();
+  const aiApiKey = el.aiKeyInput.value.trim();
   const wakatimeApiKey = el.wakaKeyInput.value.trim();
-  const appPassword    = el.appPasswordInput.value.trim();
+  const appPassword = el.appPasswordInput.value.trim();
 
   // L2: Only trigger a scan when the filesystem-affecting settings change
-  const rootsChanged  = JSON.stringify(roots) !== JSON.stringify(state.config?.roots || []);
-  const depthChanged  = maxDepth !== (state.config?.maxDepth || 4);
-  const shouldRescan  = rootsChanged || depthChanged;
+  const rootsChanged = JSON.stringify(roots) !== JSON.stringify(state.config?.roots || []);
+  const depthChanged = maxDepth !== (state.config?.maxDepth || 4);
+  const shouldRescan = rootsChanged || depthChanged;
 
   el.saveSettingsButton.textContent = 'Saving...';
   el.saveSettingsButton.disabled = true;
@@ -897,14 +905,15 @@ el.feedbackForm.addEventListener('submit', async e => {
   e.preventDefault();
   const text = el.feedbackText.value.trim();
   if (!text) return;
-  
+
   const submitBtn = el.feedbackForm.querySelector('button[type="submit"]');
   submitBtn.disabled = true;
   submitBtn.textContent = 'Sending...';
 
   // REPLACE THESE WITH YOUR ACTUAL FORMSPREE IDs
   const FORMSPREE_ID_1 = 'mzdwjekj';
-  const FORMSPREE_ID_2 = '';
+  const FORMSPREE_ID_2 = 'mpqnydqy';
+  const FORMSPREE_ID_3 = 'mlgvpbqq';
 
   try {
     const promises = [];
@@ -917,6 +926,13 @@ el.feedbackForm.addEventListener('submit', async e => {
     }
     if (FORMSPREE_ID_2 && FORMSPREE_ID_2 !== 'YOUR_FORMSPREE_ID_2') {
       promises.push(fetch(`https://formspree.io/f/${FORMSPREE_ID_2}`, {
+        method: 'POST',
+        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text })
+      }));
+    }
+    if (FORMSPREE_ID_3 && FORMSPREE_ID_3 !== 'YOUR_FORMSPREE_ID_3') {
+      promises.push(fetch(`https://formspree.io/f/${FORMSPREE_ID_3}`, {
         method: 'POST',
         headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: text })
@@ -958,8 +974,8 @@ el.settingsBrowseBtn.addEventListener('click', () => handleFolderBrowse(el.roots
 // Onboarding form
 el.onboardingForm.addEventListener('submit', async e => {
   e.preventDefault();
-  const userName  = el.onboardingNameInput.value.trim();
-  const roots     = el.onboardingRootsInput.value.split(/\r?\n/).map(r => r.trim()).filter(Boolean);
+  const userName = el.onboardingNameInput.value.trim();
+  const roots = el.onboardingRootsInput.value.split(/\r?\n/).map(r => r.trim()).filter(Boolean);
   const githubPat = el.onboardingPatInput.value.trim();
 
   // Only override existing values if the user actually typed something.
@@ -967,17 +983,17 @@ el.onboardingForm.addEventListener('submit', async e => {
   const payload = {
     ...state.config,
     roots,
-    ...(userName  ? { userName }  : {}),
+    ...(userName ? { userName } : {}),
     ...(githubPat ? { githubPat } : {})
   };
 
   try {
     state.config = await api('/api/config', { method: 'PUT', body: JSON.stringify(payload) });
     el.userNameInput.value = state.config.userName || '';
-    el.rootsInput.value    = (state.config.roots || []).join('\n');
-    el.patInput.value      = state.config.githubPat || '';
-    el.aiKeyInput.value    = state.config.aiApiKey || '';
-    el.wakaKeyInput.value  = state.config.wakatimeApiKey || '';
+    el.rootsInput.value = (state.config.roots || []).join('\n');
+    el.patInput.value = state.config.githubPat || '';
+    el.aiKeyInput.value = state.config.aiApiKey || '';
+    el.wakaKeyInput.value = state.config.wakatimeApiKey || '';
 
     el.landingScreen.classList.add('hidden');
     el.landingScreen.style.display = 'none';
