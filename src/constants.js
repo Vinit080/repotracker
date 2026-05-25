@@ -16,7 +16,7 @@ export const DEFAULT_CONFIG = {
   githubPat: '',
   aiApiKey: '',
   wakatimeApiKey: '',
-  appPassword: ''
+  appPasswordHash: '' // stored as "salt:hash" via PBKDF2, never plaintext
 };
 
 export const SKIP_DIRS = new Set([

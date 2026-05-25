@@ -837,3 +837,63 @@ menu {
   padding: 40px 20px;
   text-align: center;
 }
+
+/* ── Toast Notifications (L1) ────────────────────────────────────────────── */
+.toast {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  padding: 13px 20px;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  line-height: 1.4;
+  z-index: 10000;
+  max-width: 400px;
+  min-width: 240px;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(10px) scale(0.98);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid transparent;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.toast-info {
+  background: color-mix(in srgb, var(--panel) 85%, transparent);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.toast-success {
+  background: color-mix(in srgb, var(--info) 14%, var(--panel));
+  border-color: color-mix(in srgb, var(--info) 35%, transparent);
+  color: var(--info);
+}
+
+.toast-error {
+  background: color-mix(in srgb, var(--danger) 14%, var(--panel));
+  border-color: color-mix(in srgb, var(--danger) 35%, transparent);
+  color: var(--danger);
+}
+
+.toast-warn {
+  background: color-mix(in srgb, var(--warn) 14%, var(--panel));
+  border-color: color-mix(in srgb, var(--warn) 35%, transparent);
+  color: var(--warn);
+}
+
+@media (max-width: 620px) {
+  .toast {
+    right: 12px;
+    bottom: 12px;
+    max-width: calc(100vw - 24px);
+  }
+}

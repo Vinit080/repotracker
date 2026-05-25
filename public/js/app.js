@@ -75,6 +75,30 @@ const el = {
 const dateFormatter = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 const relativeFormatter = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
 
+// ─── Toast Notifications (L1: replaces all alert() calls) ────────────────────
+const _toastQueue = [];
+let _toastVisible = false;
+
+function showToast(message, type = 'info') {
+  _toastQueue.push({ message, type });
+  if (!_toastVisible) _drainToast();
+}
+
+function _drainToast() {
+  if (!_toastQueue.length) { _toastVisible = false; return; }
+  _toastVisible = true;
+  const { message, type } = _toastQueue.shift();
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  requestAnimationFrame(() => toast.classList.add('show'));
+  setTimeout(() => {
+    toast.classList.remove('show');
+    setTimeout(() => { toast.remove(); _drainToast(); }, 320);
+  }, type === 'error' ? 5000 : 3500);
+}
+
 function relativeTime(timestamp) {
   if (!timestamp) return 'No commits yet';
   const diffDays = Math.round((timestamp - Date.now()) / 86_400_000);
@@ -96,11 +120,16 @@ async function loadConfig() {
     el.rootsInput.value       = (state.config.roots || []).join('\n');
     el.depthInput.value       = state.config.maxDepth || 4;
     el.userNameInput.value    = state.config.userName || '';
+    // C2: API keys arrive masked ('••• (saved)') or as empty string
     el.patInput.value         = state.config.githubPat || '';
     el.aiKeyInput.value       = state.config.aiApiKey || '';
     el.wakaKeyInput.value     = state.config.wakatimeApiKey || '';
-    el.appPasswordInput.value = state.config.appPassword || '';
-    el.logoutBtn.classList.toggle('hidden', !state.config.appPassword);
+    // C2: password hash never arrives from server; use appPasswordSet boolean
+    el.appPasswordInput.value = '';
+    el.appPasswordInput.placeholder = state.config.appPasswordSet
+      ? 'Password set \u2014 leave blank to keep, type to change'
+      : 'Leave blank for no password';
+    el.logoutBtn.classList.toggle('hidden', !state.config.appPasswordSet);
     return true;
   } catch (err) {
     if (err.message === 'UNAUTHORIZED') {
@@ -230,8 +259,8 @@ function renderSpotlight() {
     <div>
       <p class="muted">${escapeHtml((repo.attention || []).join(' - '))}</p>
       <div class="card-actions">
-        <button class="ghost" type="button" data-open="${escapeAttribute(repo.path)}">Open folder</button>
-        ${remote ? `<a class="remote-link" href="${escapeAttribute(remote)}" target="_blank" rel="noreferrer">Remote</a>` : ''}
+        <button class="ghost" type="button" data-open-spotlight="${escapeAttribute(repo.path)}">Open folder</button>
+        ${remote && /^https:\/\//.test(remote) ? `<a class="remote-link" href="${escapeAttribute(remote)}" target="_blank" rel="noreferrer">Remote</a>` : ''}
       </div>
     </div>
   `;
@@ -367,7 +396,7 @@ function renderRepoCard(repo) {
       if (!script) return;
       qaSelect.value = '';
       try { await api('/api/repos/action', { method: 'POST', body: JSON.stringify({ path: repo.path, script }) }); }
-      catch (err) { alert(`Failed to start: ${err.message}`); }
+      catch (err) { showToast(`Failed to start: ${err.message}`, 'error'); }
     });
   }
 
@@ -397,18 +426,21 @@ function renderRepoCard(repo) {
         try {
           await api('/api/repos/clone', { method: 'POST', body: JSON.stringify({ root: el.cloneDestSelect.value, url: repo.remoteUrl, name: repo.name }) });
           el.cloneDialog.close();
-          alert(`Cloning ${repo.name}! A terminal window should appear.`);
-        } catch (e) { alert('Clone failed: ' + e.message); }
+          showToast(`Cloning ${repo.name}! A terminal window will appear.`, 'success');
+        } catch (e) { showToast('Clone failed: ' + e.message, 'error'); }
         finally { el.confirmCloneButton.disabled = false; el.confirmCloneButton.textContent = 'Clone'; }
       };
       el.cloneDialog.showModal();
     });
   } else {
+    // L3: only show Audit button when repo has a package.json (scripts !== null)
+    if (!repo.scripts) auditBtn.classList.add('hidden');
+
     setupBtn.addEventListener('click', async () => {
       try {
         await api('/api/repos/setup', { method: 'POST', body: JSON.stringify({ path: repo.path }) });
-        alert(`Auto-setup started for ${repo.name}.`);
-      } catch (err) { alert(`Auto-setup failed: ${err.message}`); }
+        showToast(`Pull & Setup started for ${repo.name}.`, 'success');
+      } catch (err) { showToast(`Auto-setup failed: ${err.message}`, 'error'); }
     });
 
     auditBtn.addEventListener('click', async () => {
@@ -416,10 +448,12 @@ function renderRepoCard(repo) {
       try {
         const res = await api('/api/repos/audit', { method: 'POST', body: JSON.stringify({ path: repo.path }) });
         const v = res.metadata?.vulnerabilities;
-        alert(v && (v.high > 0 || v.critical > 0)
-          ? `⚠️ Vulnerabilities in ${repo.name}! High: ${v.high}, Critical: ${v.critical}`
-          : `✅ Audit passed for ${repo.name} — no high/critical issues.`);
-      } catch (err) { alert(`Audit failed: ${err.message}`); }
+        if (v && (v.high > 0 || v.critical > 0)) {
+          showToast(`⚠️ Vulnerabilities in ${repo.name}! High: ${v.high}, Critical: ${v.critical}`, 'warn');
+        } else {
+          showToast(`✅ Audit passed for ${repo.name} — no high/critical issues.`, 'success');
+        }
+      } catch (err) { showToast(`Audit failed: ${err.message}`, 'error'); }
       finally { auditBtn.textContent = 'Audit'; }
     });
 
@@ -431,9 +465,9 @@ function renderRepoCard(repo) {
         aisyncBtn.textContent = 'Syncing...';
         try {
           const res = await api('/api/repos/aisync', { method: 'POST', body: JSON.stringify({ path: repo.path }) });
-          alert(`✅ Synced! Commit: "${res.message}"`);
+          showToast(`✅ Synced! Commit: "${res.message}"`, 'success');
           scanRepos();
-        } catch (err) { alert(`AI Sync failed: ${err.message}`); }
+        } catch (err) { showToast(`AI Sync failed: ${err.message}`, 'error'); }
         finally { aisyncBtn.disabled = false; aisyncBtn.textContent = 'AI Sync 🪄'; }
       });
     }
@@ -441,8 +475,9 @@ function renderRepoCard(repo) {
     openButton.addEventListener('click', () => openRepo(repo.path));
   }
 
+  // M3: validate remote is a real https:// URL before assigning to href
   const remote = normalizeRemote(repo.remoteUrl);
-  if (remote) remoteLink.href = remote;
+  if (remote && /^https:\/\//.test(remote)) remoteLink.href = remote;
   else remoteLink.classList.add('hidden');
 
   card.dataset.path = repo.path;
@@ -473,6 +508,11 @@ async function saveSettings(event) {
   const wakatimeApiKey = el.wakaKeyInput.value.trim();
   const appPassword    = el.appPasswordInput.value.trim();
 
+  // L2: Only trigger a scan when the filesystem-affecting settings change
+  const rootsChanged  = JSON.stringify(roots) !== JSON.stringify(state.config?.roots || []);
+  const depthChanged  = maxDepth !== (state.config?.maxDepth || 4);
+  const shouldRescan  = rootsChanged || depthChanged;
+
   el.saveSettingsButton.textContent = 'Saving...';
   el.saveSettingsButton.disabled = true;
 
@@ -481,21 +521,45 @@ async function saveSettings(event) {
       method: 'PUT',
       body: JSON.stringify({ roots, maxDepth, userName, githubPat, aiApiKey, wakatimeApiKey, appPassword })
     });
+    // Update password-related UI after save
+    el.appPasswordInput.value = '';
+    el.appPasswordInput.placeholder = state.config.appPasswordSet
+      ? 'Password set \u2014 leave blank to keep, type to change'
+      : 'Leave blank for no password';
     if (appPassword) {
-      localStorage.setItem('repo_auth', appPassword);
+      // After setting a new password, the user gets a new session token on next login.
+      // For now, store the returned session or do a fresh login prompt.
+      localStorage.setItem('repo_auth', await _refreshSession(appPassword));
       el.logoutBtn.classList.remove('hidden');
-    } else {
+    } else if (!state.config.appPasswordSet) {
       localStorage.removeItem('repo_auth');
       el.logoutBtn.classList.add('hidden');
     }
     el.saveSettingsButton.textContent = 'Saved!';
+    showToast('Settings saved.', 'success');
     setTimeout(() => { el.saveSettingsButton.textContent = 'Save and scan'; el.saveSettingsButton.disabled = false; }, 2000);
-    await scanRepos();
+    if (shouldRescan) await scanRepos();
   } catch (err) {
-    alert('Failed to save settings: ' + err.message);
+    showToast('Failed to save settings: ' + err.message, 'error');
     el.saveSettingsButton.textContent = 'Save and scan';
     el.saveSettingsButton.disabled = false;
   }
+}
+
+/** After changing the password, get a fresh session token silently. */
+async function _refreshSession(newPassword) {
+  try {
+    const res = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: newPassword })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return data.token;
+    }
+  } catch { /* ignore */ }
+  return localStorage.getItem('repo_auth') || '';
 }
 
 // ─── Timeline ─────────────────────────────────────────────────────────────────
@@ -571,11 +635,14 @@ async function fetchWakatimeStats() {
   if (!state.config?.wakatimeApiKey) return;
   try {
     const data = await api('/api/wakatime');
+    // L6: guard against unexpected response shape (e.g. WakaTime API error object)
+    if (!Array.isArray(data?.data)) {
+      console.warn('WakaTime: unexpected response', data?.error || data);
+      return;
+    }
     const projects = {};
-    if (data.data) {
-      for (const day of data.data) {
-        for (const p of day.projects) projects[p.name] = (projects[p.name] || 0) + p.total_seconds;
-      }
+    for (const day of data.data) {
+      for (const p of (day.projects || [])) projects[p.name] = (projects[p.name] || 0) + p.total_seconds;
     }
     for (const repo of state.repos) {
       if (projects[repo.name]) repo.wakatime = { hours: (projects[repo.name] / 3600).toFixed(1) };
@@ -651,8 +718,12 @@ document.addEventListener('keydown', e => {
   }
 });
 
-// Open repo from data-open attribute (spotlight, search results)
-document.addEventListener('click', e => {
+// M4: Scope data-open handler to known containers only (not the whole document)
+el.spotlight.addEventListener('click', e => {
+  const opener = e.target.closest('[data-open-spotlight]');
+  if (opener) openRepo(opener.dataset.openSpotlight);
+});
+el.searchResults.addEventListener('click', e => {
   const opener = e.target.closest('[data-open]');
   if (opener) openRepo(opener.dataset.open);
 });
@@ -678,10 +749,10 @@ el.authForm.addEventListener('submit', async e => {
       el.authPasswordInput.value = '';
       if (await loadConfig()) await scanRepos();
     } else {
-      alert('Incorrect password');
+      showToast('Incorrect password', 'error');
       el.authPasswordInput.value = '';
     }
-  } catch { alert('Login error. Is the server running?'); }
+  } catch { showToast('Login error. Is the server running?', 'error'); }
 });
 
 // Logout
@@ -718,7 +789,7 @@ el.onboardingForm.addEventListener('submit', async e => {
     el.landingScreen.style.display = 'none';
     el.shell.style.display = '';
     await scanRepos();
-  } catch (err) { alert('Failed to save: ' + err.message); }
+  } catch (err) { showToast('Failed to save: ' + err.message, 'error'); }
 });
 
 // AI Standup
@@ -746,6 +817,9 @@ document.getElementById('themeToggleBtn').addEventListener('click', () => {
   const savedTheme = localStorage.getItem('repo_theme');
   if (savedTheme) document.documentElement.setAttribute('data-theme', savedTheme);
 
+  // M5: Show a loading indicator while the initial config fetch is in-flight
+  el.scanMeta.textContent = 'Connecting to server...';
+
   const ok = await loadConfig();
   if (!ok) return; // auth dialog is now showing
 
@@ -766,6 +840,7 @@ document.getElementById('themeToggleBtn').addEventListener('click', () => {
     } catch { /* no suggestions available */ }
   } else {
     // Returning user — show dashboard and scan
+    el.scanMeta.textContent = 'Ready. Click Scan repos to refresh.';
     el.landingScreen.style.display = 'none';
     el.landingScreen.classList.add('hidden');
     el.shell.style.display = '';

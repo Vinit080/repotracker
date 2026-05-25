@@ -2,7 +2,6 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import notifier from 'node-notifier';
 import { SKIP_DIRS } from './constants.js';
 
 const execFileAsync = promisify(execFile);
@@ -202,15 +201,6 @@ export async function scanRepos(config, meta) {
 
   const repos = await Promise.all([...repoPaths].sort((a, b) => a.localeCompare(b)).map((repoPath) => summarizeRepo(repoPath, meta[repoPath])));
   repos.sort((a, b) => Number(b.pinned) - Number(a.pinned) || a.health - b.health || a.name.localeCompare(b.name));
-
-  const highRiskRepos = repos.filter((r) => r.health < 60 || r.status.behind > 10 || r.status.dirtyCount > 15);
-  if (highRiskRepos.length > 0) {
-    notifier.notify({
-      title: 'RepoTracker Risk Alert',
-      message: `${highRiskRepos.length} repos need attention (e.g. ${highRiskRepos[0].name})`,
-      sound: true
-    });
-  }
 
   return {
     scannedAt: new Date().toISOString(),

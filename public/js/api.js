@@ -1,9 +1,9 @@
 export async function api(path, options = {}) {
   const auth = localStorage.getItem('repo_auth');
-  
+
   const response = await fetch(path, {
     headers: {
-      'Content-Type': 'application/json',
+      ...(options.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
       ...(auth ? { 'Authorization': `Bearer ${auth}` } : {}),
       ...(options.headers || {})
     },

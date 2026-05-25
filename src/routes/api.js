@@ -3,17 +3,58 @@ import path from 'node:path';
 import { spawn, execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { CONFIG_FILE, META_FILE, DEFAULT_CONFIG } from '../constants.js';
-import { readJson, writeJson, writeJsonIfMissing, normalizeConfig, readRequestJson, sendJson } from '../utils.js';
+import { readJson, writeJson, writeJsonIfMissing, normalizeConfig, readRequestJson, sendJson, sanitizeConfigForResponse } from '../utils.js';
 import { scanRepos, runGit } from '../git.js';
-
+import { hashPassword, verifyPassword, createSession, isValidSession } from '../security.js';
 import os from 'node:os';
 
 const execFileAsync = promisify(execFile);
+
+// ── Security helpers ──────────────────────────────────────────────────────────
+
+/** Ensure a resolved path is inside one of the user's configured root dirs. */
+function isPathWithinRoots(resolvedPath, roots) {
+  return roots.some(root => {
+    const r = path.resolve(root);
+    return resolvedPath === r || resolvedPath.startsWith(r + path.sep);
+  });
+}
+
+/** Only allow https:// clone URLs and reject shell metacharacters. */
+function isValidHttpsUrl(url) {
+  try {
+    if (/["'$`\\]/.test(url)) return false;
+    return new URL(url).protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+/** Repo names must be simple filesystem-safe strings (no shell meta-chars). */
+function isValidRepoName(name) {
+  return typeof name === 'string' && /^[a-zA-Z0-9._-]{1,100}$/.test(name);
+}
+
+/** Validate a git-grep query: reject null bytes and excessive length. */
+function sanitizeSearchQuery(query) {
+  if (typeof query !== 'string') return null;
+  if (query.includes('\0')) return null;
+  if (query.length > 200) return null;
+  return query;
+}
 
 export async function handleApi(request, response) {
   const requestUrl = new URL(request.url, `http://${request.headers.host}`);
   const config = normalizeConfig(await readJson(CONFIG_FILE, DEFAULT_CONFIG));
 
+  // M1: Enforce Content-Type on state-changing requests
+  if (['POST', 'PUT', 'PATCH'].includes(request.method)) {
+    const ct = request.headers['content-type'] || '';
+    if (!ct.startsWith('application/json')) {
+      sendJson(response, 415, { error: 'Content-Type must be application/json' });
+      return;
+    }
+  }
   if (request.method === 'GET' && requestUrl.pathname === '/api/suggest-roots') {
     const home = os.homedir();
     const commonPaths = [
@@ -39,32 +80,72 @@ export async function handleApi(request, response) {
 
   if (request.method === 'POST' && requestUrl.pathname === '/api/login') {
     const body = await readRequestJson(request);
-    if (!config.appPassword || body.password === config.appPassword) {
-      sendJson(response, 200, { ok: true, token: config.appPassword });
+
+    // C1: Backward-compat migration — hash any remaining plaintext password
+    if (config.appPassword && !config.appPasswordHash) {
+      const hashed = hashPassword(config.appPassword);
+      const migrated = normalizeConfig({ ...config, appPasswordHash: hashed });
+      delete migrated.appPassword;
+      await writeJson(CONFIG_FILE, migrated);
+      config.appPasswordHash = hashed;
+    }
+
+    if (!config.appPasswordHash) {
+      // No password configured — issue a session token so the client has one
+      sendJson(response, 200, { ok: true, token: createSession() });
+    } else if (verifyPassword(body.password ?? '', config.appPasswordHash)) {
+      sendJson(response, 200, { ok: true, token: createSession() });
     } else {
       sendJson(response, 401, { error: 'Incorrect password' });
     }
     return;
   }
 
-  if (config.appPassword) {
+  // C1/H2: Session-based auth — raw password is never sent after login
+  if (config.appPasswordHash) {
     const authHeader = request.headers.authorization || '';
-    if (authHeader !== `Bearer ${config.appPassword}`) {
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+    if (!isValidSession(token)) {
       sendJson(response, 401, { error: 'Unauthorized', userName: config.userName || '' });
       return;
     }
   }
 
+  // C2: Return sanitized config — never expose raw API keys or password hash
   if (request.method === 'GET' && requestUrl.pathname === '/api/config') {
-    sendJson(response, 200, config);
+    sendJson(response, 200, sanitizeConfigForResponse(config));
     return;
   }
 
+  // H1: Pick only known keys from the request body; handle masked sentinels
   if (request.method === 'PUT' && requestUrl.pathname === '/api/config') {
     const body = await readRequestJson(request);
-    const updatedConfig = normalizeConfig({ ...config, ...body });
+    const MASK = '\u2022\u2022\u2022 (saved)';
+
+    // Sensitive fields: keep existing value when client sends the mask sentinel
+    const githubPat      = body.githubPat      === MASK ? config.githubPat      : (typeof body.githubPat      === 'string' ? body.githubPat      : config.githubPat);
+    const aiApiKey       = body.aiApiKey        === MASK ? config.aiApiKey       : (typeof body.aiApiKey        === 'string' ? body.aiApiKey        : config.aiApiKey);
+    const wakatimeApiKey = body.wakatimeApiKey  === MASK ? config.wakatimeApiKey : (typeof body.wakatimeApiKey  === 'string' ? body.wakatimeApiKey  : config.wakatimeApiKey);
+
+    // Password: empty = keep existing; non-empty = hash and store new
+    let { appPasswordHash } = config;
+    if (typeof body.appPassword === 'string' && body.appPassword !== '') {
+      appPasswordHash = hashPassword(body.appPassword);
+    }
+    // Explicit clear: frontend sends clearPassword: true
+    if (body.clearPassword === true) appPasswordHash = '';
+
+    const updatedConfig = normalizeConfig({
+      roots:          body.roots,
+      maxDepth:       body.maxDepth,
+      userName:       body.userName,
+      githubPat,
+      aiApiKey,
+      wakatimeApiKey,
+      appPasswordHash
+    });
     await writeJson(CONFIG_FILE, updatedConfig);
-    sendJson(response, 200, updatedConfig);
+    sendJson(response, 200, sanitizeConfigForResponse(updatedConfig));
     return;
   }
 
@@ -79,6 +160,10 @@ export async function handleApi(request, response) {
     const repoPath = body.path ? path.resolve(body.path) : '';
     if (!repoPath) {
       sendJson(response, 400, { error: 'Missing repo path' });
+      return;
+    }
+    if (!isPathWithinRoots(repoPath, config.roots)) {
+      sendJson(response, 403, { error: 'Path outside configured roots' });
       return;
     }
     const meta = await readJson(META_FILE, {});
@@ -113,11 +198,19 @@ export async function handleApi(request, response) {
     return;
   }
 
+  // M2: github-proxy restricted to GET + safe endpoint allowlist
   if (request.method === 'POST' && requestUrl.pathname === '/api/github-proxy') {
     if (!config.githubPat) { sendJson(response, 401, { error: 'No GitHub PAT configured' }); return; }
     const body = await readRequestJson(request);
+    const endpoint = typeof body.endpoint === 'string' ? body.endpoint : '';
+    const ALLOWED_ENDPOINT = /^\/repos\/[^/]+\/[^/]+(\/(commits|issues|pulls|actions\/runs)(\/.*)?)?(\?.*)?$|^\/user(\/repos)?(\?.*)?$/;
+    if (!ALLOWED_ENDPOINT.test(endpoint)) {
+      sendJson(response, 400, { error: 'GitHub endpoint not allowed' });
+      return;
+    }
     try {
-      const ghResponse = await fetch(`https://api.github.com${body.endpoint}`, {
+      const ghResponse = await fetch(`https://api.github.com${endpoint}`, {
+        method: 'GET', // Force read-only
         headers: { 'Authorization': `Bearer ${config.githubPat}`, 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'RepoTracker' }
       });
       const data = await ghResponse.json();
@@ -129,6 +222,10 @@ export async function handleApi(request, response) {
   if (request.method === 'POST' && requestUrl.pathname === '/api/repos/open') {
     const body = await readRequestJson(request);
     const repoPath = body.path ? path.resolve(body.path) : '';
+    if (!repoPath || !isPathWithinRoots(repoPath, config.roots)) {
+      sendJson(response, 403, { error: 'Path outside configured roots' });
+      return;
+    }
     try {
       await fs.access(repoPath);
       const command = process.platform === 'win32' ? 'explorer.exe' : process.platform === 'darwin' ? 'open' : 'xdg-open';
@@ -158,6 +255,24 @@ export async function handleApi(request, response) {
   if (request.method === 'POST' && requestUrl.pathname === '/api/repos/action') {
     const body = await readRequestJson(request);
     const repoPath = body.path ? path.resolve(body.path) : '';
+    if (!repoPath || !isPathWithinRoots(repoPath, config.roots)) {
+      sendJson(response, 403, { error: 'Path outside configured roots' });
+      return;
+    }
+    // Allowlist: script must exist in the repo's own package.json
+    let validScripts = [];
+    try {
+      const pkgText = await fs.readFile(path.join(repoPath, 'package.json'), 'utf8');
+      const pkg = JSON.parse(pkgText);
+      validScripts = Object.keys(pkg.scripts || {});
+    } catch {
+      sendJson(response, 400, { error: 'Could not read package.json in repository' });
+      return;
+    }
+    if (!validScripts.includes(body.script)) {
+      sendJson(response, 400, { error: `Unknown script. Valid scripts: ${validScripts.join(', ')}` });
+      return;
+    }
     try {
       await fs.access(repoPath);
       const command = process.platform === 'win32' ? 'cmd.exe' : 'sh';
@@ -171,6 +286,10 @@ export async function handleApi(request, response) {
   if (request.method === 'POST' && requestUrl.pathname === '/api/repos/setup') {
     const body = await readRequestJson(request);
     const repoPath = body.path ? path.resolve(body.path) : '';
+    if (!repoPath || !isPathWithinRoots(repoPath, config.roots)) {
+      sendJson(response, 403, { error: 'Path outside configured roots' });
+      return;
+    }
     try {
       await fs.access(repoPath);
       const command = process.platform === 'win32' ? 'cmd.exe' : 'sh';
@@ -199,12 +318,17 @@ export async function handleApi(request, response) {
 
   if (request.method === 'POST' && requestUrl.pathname === '/api/search') {
     const body = await readRequestJson(request);
+    const query = sanitizeSearchQuery(body.query);
+    if (!query) {
+      sendJson(response, 400, { error: 'Invalid or missing search query' });
+      return;
+    }
     const meta = await readJson(META_FILE, {});
     const scanData = await scanRepos(config, meta);
     const results = [];
     await Promise.all(scanData.repos.map(async (repo) => {
       try {
-        const out = await runGit(repo.path, ['grep', '-n', '-i', '-I', body.query]);
+        const out = await runGit(repo.path, ['grep', '-n', '-i', '-I', '-e', query]);
         if (out) {
           out.split(/\r?\n/).forEach(line => {
             const parts = line.split(':');
@@ -220,6 +344,10 @@ export async function handleApi(request, response) {
   if (request.method === 'POST' && requestUrl.pathname === '/api/repos/audit') {
     const body = await readRequestJson(request);
     const repoPath = body.path ? path.resolve(body.path) : '';
+    if (!repoPath || !isPathWithinRoots(repoPath, config.roots)) {
+      sendJson(response, 403, { error: 'Path outside configured roots' });
+      return;
+    }
     try {
       const { stdout } = await execFileAsync('npm', ['audit', '--json'], { cwd: repoPath, maxBuffer: 10 * 1024 * 1024 });
       sendJson(response, 200, JSON.parse(stdout));
@@ -261,6 +389,10 @@ export async function handleApi(request, response) {
     if (!config.aiApiKey) { sendJson(response, 401, { error: 'No AI API Key configured' }); return; }
     const body = await readRequestJson(request);
     const repoPath = body.path ? path.resolve(body.path) : '';
+    if (!repoPath || !isPathWithinRoots(repoPath, config.roots)) {
+      sendJson(response, 403, { error: 'Path outside configured roots' });
+      return;
+    }
     try {
       await fs.access(repoPath);
       // Get combined diff (unstaged + staged)
@@ -326,14 +458,27 @@ export async function handleApi(request, response) {
       sendJson(response, 400, { error: 'Missing root, url, or name' });
       return;
     }
+    if (!isValidHttpsUrl(cloneUrl)) {
+      sendJson(response, 400, { error: 'Clone URL must use the https:// scheme' });
+      return;
+    }
+    if (!isValidRepoName(repoName)) {
+      sendJson(response, 400, { error: 'Invalid repository name' });
+      return;
+    }
+    if (!isPathWithinRoots(targetRoot, config.roots)) {
+      sendJson(response, 403, { error: 'Target root is outside configured roots' });
+      return;
+    }
 
     try {
       await fs.access(targetRoot);
       const targetPath = path.join(targetRoot, repoName);
 
       const command = process.platform === 'win32' ? 'cmd.exe' : 'sh';
-      const winArgs = ['/c', 'start', 'cmd.exe', '/k', `echo Cloning ${repoName}... & git clone ${cloneUrl} "${targetPath}" & echo Done. You can close this window.`];
-      const macArgs = ['-c', `echo "Cloning ${repoName}..."; git clone ${cloneUrl} "${targetPath}"; echo "Done."`];
+      // H4: URL is quoted in the shell string; repoName is validated alphanumeric
+      const winArgs = ['/c', 'start', 'cmd.exe', '/k', `echo Cloning... & git clone "${cloneUrl}" "${targetPath}" & echo Done. You can close this window.`];
+      const macArgs = ['-c', `git clone "${cloneUrl}" "${targetPath}" && echo "Done."`];
 
       spawn(command, process.platform === 'win32' ? winArgs : macArgs, { cwd: targetRoot, detached: true, stdio: 'ignore' }).unref();
       sendJson(response, 200, { ok: true });

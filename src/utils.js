@@ -32,11 +32,15 @@ export function normalizeConfig(input = {}) {
     ? Math.min(Math.max(Number(input.maxDepth), 1), 8)
     : DEFAULT_CONFIG.maxDepth;
 
-  const githubPat = typeof input.githubPat === 'string' ? input.githubPat : DEFAULT_CONFIG.githubPat;
-  const aiApiKey = typeof input.aiApiKey === 'string' ? input.aiApiKey : DEFAULT_CONFIG.aiApiKey;
-  const wakatimeApiKey = typeof input.wakatimeApiKey === 'string' ? input.wakatimeApiKey : DEFAULT_CONFIG.wakatimeApiKey;
-  const userName = typeof input.userName === 'string' ? input.userName : DEFAULT_CONFIG.userName;
-  const appPassword = typeof input.appPassword === 'string' ? input.appPassword : DEFAULT_CONFIG.appPassword;
+  const githubPat      = typeof input.githubPat      === 'string' ? input.githubPat      : DEFAULT_CONFIG.githubPat;
+  const aiApiKey       = typeof input.aiApiKey        === 'string' ? input.aiApiKey        : DEFAULT_CONFIG.aiApiKey;
+  const wakatimeApiKey = typeof input.wakatimeApiKey  === 'string' ? input.wakatimeApiKey  : DEFAULT_CONFIG.wakatimeApiKey;
+  const userName       = typeof input.userName        === 'string' ? input.userName        : DEFAULT_CONFIG.userName;
+
+  // Support both old plaintext field (migration) and new hash field
+  const appPasswordHash = typeof input.appPasswordHash === 'string'
+    ? input.appPasswordHash
+    : DEFAULT_CONFIG.appPasswordHash;
 
   return {
     roots: roots.length ? [...new Set(roots.map((root) => path.resolve(root)))] : DEFAULT_CONFIG.roots,
@@ -45,13 +49,38 @@ export function normalizeConfig(input = {}) {
     githubPat,
     aiApiKey,
     wakatimeApiKey,
-    appPassword
+    appPasswordHash
   };
 }
 
-export async function readRequestJson(request) {
+/**
+ * Return a config object safe to send to the browser:
+ * - API keys are masked to '••• (saved)' if set, empty string if not
+ * - appPasswordHash is NEVER included; instead a boolean appPasswordSet is sent
+ */
+export function sanitizeConfigForResponse(config) {
+  const MASK = '\u2022\u2022\u2022 (saved)';
+  return {
+    roots:          config.roots,
+    maxDepth:       config.maxDepth,
+    userName:       config.userName,
+    githubPat:      config.githubPat      ? MASK : '',
+    aiApiKey:       config.aiApiKey       ? MASK : '',
+    wakatimeApiKey: config.wakatimeApiKey ? MASK : '',
+    appPasswordSet: Boolean(config.appPasswordHash),
+  };
+}
+
+export async function readRequestJson(request, maxBytes = 1_048_576 /* 1 MB */) {
   const chunks = [];
+  let total = 0;
   for await (const chunk of request) {
+    total += chunk.length;
+    if (total > maxBytes) {
+      const err = new Error('Request body too large');
+      err.code = 'PAYLOAD_TOO_LARGE';
+      throw err;
+    }
     chunks.push(chunk);
   }
   if (!chunks.length) return {};

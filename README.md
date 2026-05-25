@@ -1,108 +1,74 @@
-# 🚀 RepoTracker — Personal Git Mission Control
-
-RepoTracker is a **local-first**, zero-cloud personal dashboard for every Git repository on your machine. Point it at your code folders and it instantly surfaces health scores, sync drift, dirty worktrees, and action items — all in a beautiful dark-mode UI with no subscription, no telemetry, and no data leaving your computer.
-
-![RepoTracker Dashboard](https://img.shields.io/badge/Node.js-%3E%3D20-brightgreen) ![License](https://img.shields.io/badge/license-MIT-blue) ![Local First](https://img.shields.io/badge/data-local--only-pink)
+<div align="center">
+  <h1>🚀 RepoTracker</h1>
+  <p><strong>Your ultimate, intelligent local Git repository manager.</strong></p>
+  <p>RepoTracker automatically discovers, monitors, and manages all your local Git repositories from a beautiful, lightning-fast dashboard. With AI-powered commit messages and WakaTime insights, staying on top of your code has never been easier.</p>
+</div>
 
 ---
 
 ## ✨ Features
 
-| Feature | Description |
-|---|---|
-| 🏠 **Local-First & Private** | All data stored in `data/` on your machine. Never uploaded anywhere. |
-| 🔒 **App Password Lock** | Optional password protection — locks the entire UI and all APIs. |
-| ☁️ **GitHub Cloud Sync** | Fetch your remote repos, stars, open issues, CI status. 1-click clone to local. |
-| 🤖 **AI Standup Generator** | Reads your git logs and generates a professional weekly standup report via Gemini. |
-| 🪄 **1-Click AI Sync** | Auto-generates a commit message, commits, and pushes dirty worktrees with one button. |
-| ⏱️ **WakaTime Integration** | Shows real editor hours per repo from your WakaTime account. |
-| 🔍 **Global Code Search** | `Ctrl+K` palette — searches repo names AND source code across all projects instantly. |
-| 📝 **TODO Aggregator** | Collects every `TODO:`, `FIXME:`, and `HACK:` across all repos into one action queue. |
-| 🔔 **Background Notifications** | Native desktop alerts when repos fall behind their remote upstream. |
-| ⚡ **Quick Actions** | Run npm scripts, `Pull & Setup` (git pull + install deps), and `npm audit` from the card. |
-| 🎨 **Smart Theme** | Glassmorphic dark/light mode with full system preference detection. |
+- **📡 Automatic Discovery**: Point RepoTracker at your root folders and it instantly maps every Git repository recursively.
+- **❤️ Health Scoring**: Repositories are automatically scored based on uncommitted changes, unpushed commits, staleness, and branch health.
+- **🪄 AI Git Sync**: Generate perfectly summarized commit messages instantly via Gemini AI and push changes with a single click.
+- **📊 WakaTime Integration**: See exactly how much time you've spent coding in each repository over the last 7 days.
+- **🔍 Global Search**: Fast `git grep` across all your local repositories at once, and easily find floating `TODO`s or `FIXME`s.
+- **🛡️ Secure by Design**: Runs locally with enterprise-grade security. PBKDF2 hashed passwords, strict session tokens, and zero API credential leakage to the browser.
+- **🔔 Smart Alerts**: A background worker continuously monitors your repos and sends desktop notifications if your code falls behind the remote upstream.
 
----
+## 🚀 Getting Started
 
-## 🛠️ Setup
+RepoTracker is designed to be completely zero-configuration to start.
 
 ### Prerequisites
-- **Node.js** v20 or higher
-- **Git** available on your PATH
+- [Node.js](https://nodejs.org/) (v20 or higher)
+- [Git](https://git-scm.com/) installed and available in your PATH
 
-### Install & Run
+### Installation
 
-```bash
-git clone https://github.com/yourusername/repotracker.git
-cd repotracker
-npm install
-npm start
-```
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/yourusername/repotracker.git
+   cd repotracker
+   ```
 
-Then open **http://localhost:4177** in your browser.
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
 
-On first launch, RepoTracker will show an **onboarding screen** to configure your code folders. It will also auto-detect common developer directories (e.g. `~/Projects`, `~/Documents/GitHub`) and pre-fill them for you.
+3. **Start the server**
+   ```bash
+   npm start
+   ```
 
----
+4. **Open the Dashboard**
+   Navigate to `http://localhost:4177` in your browser. The built-in onboarding screen will guide you through adding your code directories and API keys!
 
-## ⚙️ Configuration
+## 🔒 Security First
 
-All settings live in the **Settings tab** in the UI. Everything is stored locally in `data/config.json` (gitignored — your secrets never leave your machine).
+Because RepoTracker interacts directly with your file system and executes shell commands, it was built with a highly defensive architecture:
+- **No Plaintext Passwords**: Authentication relies on PBKDF2-SHA512 hashing and secure, time-limited cryptographic session tokens.
+- **Sanitized Configurations**: Sensitive keys (GitHub PAT, Gemini Key) are never exposed to the frontend console.
+- **Command Injection Prevention**: Strict validation and shell-escaping prevent malicious execution through URL cloning or regex searches.
+- **Anti-DNS Rebinding / CSRF Guard**: Strictly allows only `localhost` access and enforces `Content-Type` validations on mutating requests.
 
-### Root Folders
-Absolute paths to folders where you keep your code, one per line. RepoTracker scans these recursively up to the configured depth.
+## 🛠️ Technology Stack
 
-```
-C:\Users\Name\Projects
-C:\Work\Repos
-```
+- **Backend**: Node.js (Vanilla, zero heavy frameworks), `node-notifier` for native OS alerts.
+- **Frontend**: Vanilla JavaScript (ES6+), Semantic HTML5, and a custom lightweight Glassmorphic CSS design system.
+- **Integrations**: GitHub API, WakaTime API, Google Gemini Pro.
 
-### Optional Integrations
+## 🤝 Collaborators & Contributors
 
-| Key | Where to get it | Unlocks |
-|---|---|---|
-| **GitHub PAT** | [github.com/settings/tokens](https://github.com/settings/tokens) — `repo` scope | Cloud repos, stars, CI status, clone |
-| **Gemini API Key** | [aistudio.google.com](https://aistudio.google.com/app/apikey) | AI Standup, AI Sync |
-| **WakaTime Key** | [wakatime.com/settings/api-key](https://wakatime.com/settings/api-key) | Hours-per-repo time tracking |
+A massive thank you to the brilliant minds who helped bring this project to life. Your contributions, reviews, and ideas made RepoTracker possible:
 
-### App Access Password
-Set a password in Settings to lock the dashboard behind a login screen. The password is stored in `data/config.json` (local only). To unlock from another browser session, enter the password on the lock screen.
-
----
-
-## 📁 Project Structure
-
-```
-repotracker/
-├── src/
-│   ├── server.js          # HTTP server entry point
-│   ├── git.js             # Git scanning & repo analysis
-│   ├── utils.js           # JSON helpers, config normalization
-│   ├── constants.js       # Port, paths, MIME types, defaults
-│   └── routes/
-│       └── api.js         # All /api/* route handlers
-├── public/
-│   ├── index.html         # Single-page app shell
-│   ├── styles.css         # Design system & all styles
-│   └── js/
-│       ├── app.js         # Main frontend logic
-│       ├── api.js         # Fetch wrapper with auth
-│       └── components.js  # Shared render helpers
-└── data/                  # Gitignored — created at runtime
-    ├── config.json        # Your settings & API keys
-    └── repo-meta.json     # Pinned repos, notes, tags
-```
+- **Vinzone** (Creator)
+- **Shravan Sharma** (Creator)
+- **Soham Jarad** (Creator)
 
 ---
 
-## 🔒 Security Notes
-
-- `data/config.json` is **gitignored** by default — your API keys and password will never be committed.
-- The App Password is stored in plaintext locally (it protects the web UI, not the file system).
-- All GitHub/Gemini/WakaTime API calls are proxied through the local Node.js server — your keys are never exposed to the browser.
-
----
-
-<p align="center">
-  <i>Built with Vanilla JS, CSS, and Node.js — no framework, no bundler, no build step.</i>
-</p>
+<div align="center">
+  <p>Built with ❤️ for developers who love to code.</p>
+</div>
