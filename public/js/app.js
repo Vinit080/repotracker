@@ -48,7 +48,9 @@ const el = {
   filterRow: document.querySelector('#filterRow'),
   repoGrid: document.querySelector('#repoGrid'),
   resultCount: document.querySelector('#resultCount'),
-  repoCardTemplate: document.querySelector('#repoCardTemplate'),
+
+  // Templates
+  repoCardTemplate: document.getElementById('repoCardTemplate'),
 
   // Insights tab
   attentionList: document.querySelector('#attentionList'),
@@ -85,7 +87,7 @@ const el = {
 
   // Shelby Terminal
   shelbyTerminal: document.querySelector('#shelbyTerminal'),
-  shelbyOutput: document.querySelector('#shelbyOutput'),
+  shelbyResizer: document.querySelector('#shelbyResizer'),
   shelbyStatus: document.querySelector('#shelbyStatus'),
   shelbyCloseBtn: document.querySelector('#shelbyCloseBtn'),
   shelbyAbortBtn: document.querySelector('#shelbyAbortBtn'),
@@ -93,38 +95,87 @@ const el = {
 
 // ─── Shelby Terminal ──────────────────────────────────────────────────────────
 let activeShelbyTask = null;
-let shelbyEventSource = null;
+let shelbyWs = null;
+let shelbyTerminalInstance = null;
+let shelbyFitAddon = null;
+
+function initTerminal() {
+  if (shelbyTerminalInstance) return;
+  const container = document.getElementById('terminal-container');
+  
+  const style = getComputedStyle(document.documentElement);
+  const bg = style.getPropertyValue('--bg-card').split(',')[0].replace('linear-gradient(145deg', '').replace('(', '').trim() || 'transparent'; // Fallback if parsing fails
+  const text = style.getPropertyValue('--text').trim() || '#fdfdfd';
+  const accent = style.getPropertyValue('--accent').trim() || '#ff66a3';
+
+  shelbyTerminalInstance = new Terminal({
+    theme: {
+      background: 'transparent',
+      foreground: text,
+      cursor: accent,
+      cursorAccent: '#000000',
+      selectionBackground: 'rgba(255, 102, 163, 0.3)',
+      black: '#1e212b',
+      red: '#ff4a4a',
+      green: '#4ade80',
+      yellow: '#fbbf24',
+      blue: '#60a5fa',
+      magenta: '#c084fc',
+      cyan: '#22d3ee',
+      white: text
+    },
+    fontFamily: '"JetBrains Mono", "Fira Code", monospace',
+    fontSize: 14,
+    cursorBlink: true
+  });
+  shelbyFitAddon = new FitAddon.FitAddon();
+  shelbyTerminalInstance.loadAddon(shelbyFitAddon);
+  shelbyTerminalInstance.open(container);
+  
+  shelbyTerminalInstance.onData(data => {
+    if (shelbyWs && shelbyWs.readyState === WebSocket.OPEN) {
+      shelbyWs.send(data);
+    }
+  });
+
+  window.addEventListener('resize', () => {
+    if (!el.shelbyTerminal.classList.contains('hidden') && shelbyFitAddon) {
+      shelbyFitAddon.fit();
+      if (shelbyWs && shelbyWs.readyState === WebSocket.OPEN) {
+        shelbyWs.send(JSON.stringify({ type: 'resize', cols: shelbyTerminalInstance.cols, rows: shelbyTerminalInstance.rows }));
+      }
+    }
+  });
+}
 
 function openShelby(title, taskId) {
   el.shelbyStatus.textContent = `— ${title}`;
-  el.shelbyOutput.textContent = '';
   el.shelbyTerminal.classList.remove('hidden');
   el.shelbyAbortBtn.classList.remove('hidden');
   activeShelbyTask = taskId;
 
-  if (shelbyEventSource) shelbyEventSource.close();
+  initTerminal();
+  shelbyTerminalInstance.clear();
+  // slightly delay fit to ensure DOM is updated
+  setTimeout(() => { shelbyFitAddon.fit(); }, 50);
 
-  shelbyEventSource = new EventSource(`/api/tasks/stream?taskId=${taskId}`);
+  if (shelbyWs) shelbyWs.close();
 
-  shelbyEventSource.onmessage = (e) => {
-    el.shelbyOutput.textContent += e.data + '\n';
-    el.shelbyOutput.scrollTop = el.shelbyOutput.scrollHeight;
+  const token = localStorage.getItem('repo_auth') || '';
+  const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  shelbyWs = new WebSocket(`${protocol}//${location.host}/api/tasks/stream?taskId=${taskId}&token=${token}`);
+
+  shelbyWs.onopen = () => {
+    shelbyWs.send(JSON.stringify({ type: 'resize', cols: shelbyTerminalInstance.cols, rows: shelbyTerminalInstance.rows }));
   };
 
-  shelbyEventSource.addEventListener('exit', (e) => {
-    const code = e.data;
-    el.shelbyOutput.textContent += `\n[Process exited with code ${code}]\n`;
-    el.shelbyOutput.scrollTop = el.shelbyOutput.scrollHeight;
-    el.shelbyAbortBtn.classList.add('hidden');
-    shelbyEventSource.close();
-    activeShelbyTask = null;
-  });
+  shelbyWs.onmessage = (e) => {
+    shelbyTerminalInstance.write(e.data);
+  };
 
-  shelbyEventSource.onerror = () => {
-    el.shelbyOutput.textContent += `\n[Stream disconnected]\n`;
-    el.shelbyOutput.scrollTop = el.shelbyOutput.scrollHeight;
+  shelbyWs.onclose = () => {
+    shelbyTerminalInstance.write('\r\n[Stream disconnected]\r\n');
     el.shelbyAbortBtn.classList.add('hidden');
-    shelbyEventSource.close();
     activeShelbyTask = null;
   };
 }
@@ -135,6 +186,36 @@ if (el.shelbyCloseBtn) {
   });
 }
 
+// Resizer Logic
+let isResizingShelby = false;
+if (el.shelbyResizer) {
+  el.shelbyResizer.addEventListener('mousedown', (e) => {
+    isResizingShelby = true;
+    document.body.style.cursor = 'ns-resize';
+  });
+}
+
+window.addEventListener('mousemove', (e) => {
+  if (!isResizingShelby) return;
+  const newHeight = window.innerHeight - e.clientY;
+  if (newHeight > 100 && newHeight < window.innerHeight - 100) {
+    el.shelbyTerminal.style.height = `${newHeight}px`;
+    if (shelbyFitAddon) {
+      shelbyFitAddon.fit();
+      if (shelbyWs && shelbyWs.readyState === WebSocket.OPEN) {
+        shelbyWs.send(JSON.stringify({ type: 'resize', cols: shelbyTerminalInstance.cols, rows: shelbyTerminalInstance.rows }));
+      }
+    }
+  }
+});
+
+window.addEventListener('mouseup', () => {
+  if (isResizingShelby) {
+    isResizingShelby = false;
+    document.body.style.cursor = '';
+  }
+});
+
 if (el.shelbyAbortBtn) {
   el.shelbyAbortBtn.addEventListener('click', async () => {
     if (activeShelbyTask) {
@@ -142,8 +223,7 @@ if (el.shelbyAbortBtn) {
       el.shelbyAbortBtn.textContent = 'Killing...';
       try {
         await api('/api/tasks/kill', { method: 'POST', body: JSON.stringify({ taskId: activeShelbyTask }) });
-        el.shelbyOutput.textContent += `\n[Process killed by user]\n`;
-        el.shelbyOutput.scrollTop = el.shelbyOutput.scrollHeight;
+        shelbyTerminalInstance?.write('\r\n[Process killed by user]\r\n');
       } catch {
         showToast('Failed to kill process', 'error');
       }
@@ -452,10 +532,12 @@ function renderRepoCard(repo) {
   const note = fragment.querySelector('.note');
   const openButton = fragment.querySelector('.open-button');
   const remoteLink = fragment.querySelector('.remote-link');
-  const qaSelect = fragment.querySelector('.quick-actions-select');
+  const qaDropdown = fragment.querySelector('.quick-actions-dropdown');
+  const qaMenu = qaDropdown?.querySelector('.dropdown-menu');
   const auditBtn = fragment.querySelector('.audit-button');
   const setupBtn = fragment.querySelector('.setup-button');
   const aisyncBtn = fragment.querySelector('.aisync-button');
+  const shelbyBtn = fragment.querySelector('.shelby-pro-btn');
   const cloneBtn = fragment.querySelector('.clone-button');
 
   title.textContent = repo.name;
@@ -508,20 +590,25 @@ function renderRepoCard(repo) {
   note.value = repo.note || '';
 
   // Quick actions (Shelby)
-  if (repo.scripts?.length) {
-    qaSelect.classList.remove('hidden');
-    qaSelect.innerHTML = '<option value="">Quick Actions...</option>'
-      + repo.scripts.map((s, i) => `<option value="${i}">[${escapeHtml(s.runner)}] ${escapeHtml(s.name)}</option>`).join('');
-    qaSelect.addEventListener('change', async e => {
-      const idx = e.target.value;
-      if (idx === '') return;
-      const scriptObj = repo.scripts[idx];
-      qaSelect.value = '';
-      try {
-        const res = await api('/api/repos/action', { method: 'POST', body: JSON.stringify({ path: repo.path, scriptCmd: scriptObj.cmd }) });
-        openShelby(scriptObj.cmd, res.taskId);
-      }
-      catch (err) { showToast(`Failed to start: ${err.message}`, 'error'); }
+  if (repo.scripts?.length && qaDropdown && qaMenu) {
+    qaDropdown.classList.remove('hidden');
+    qaMenu.innerHTML = repo.scripts.map((s, i) => 
+      `<button type="button" class="dropdown-item" data-idx="${i}">
+         <span class="muted">[${escapeHtml(s.runner)}]</span> ${escapeHtml(s.name)}
+       </button>`
+    ).join('');
+    
+    qaMenu.querySelectorAll('.dropdown-item').forEach(btn => {
+      btn.addEventListener('click', async e => {
+        qaDropdown.removeAttribute('open');
+        const idx = btn.getAttribute('data-idx');
+        const scriptObj = repo.scripts[idx];
+        try {
+          const res = await api('/api/repos/action', { method: 'POST', body: JSON.stringify({ path: repo.path, scriptCmd: scriptObj.cmd }) });
+          openShelby(scriptObj.cmd, res.taskId);
+        }
+        catch (err) { showToast(`Failed to start: ${err.message}`, 'error'); }
+      });
     });
   }
 
@@ -549,9 +636,9 @@ function renderRepoCard(repo) {
         el.confirmCloneButton.disabled = true;
         el.confirmCloneButton.textContent = 'Cloning...';
         try {
-          await api('/api/repos/clone', { method: 'POST', body: JSON.stringify({ root: el.cloneDestSelect.value, url: repo.remoteUrl, name: repo.name }) });
+          const res = await api('/api/repos/clone', { method: 'POST', body: JSON.stringify({ root: el.cloneDestSelect.value, url: repo.remoteUrl, name: repo.name }) });
           el.cloneDialog.close();
-          showToast(`Cloning ${repo.name}! A terminal window will appear.`, 'success');
+          openShelby(`Clone ${repo.name}`, res.taskId);
         } catch (e) { showToast('Clone failed: ' + e.message, 'error'); }
         finally { el.confirmCloneButton.disabled = false; el.confirmCloneButton.textContent = 'Clone'; }
       };
@@ -566,6 +653,14 @@ function renderRepoCard(repo) {
         const res = await api('/api/repos/setup', { method: 'POST', body: JSON.stringify({ path: repo.path }) });
         openShelby('Auto-Setup', res.taskId);
       } catch (err) { showToast(`Auto-setup failed: ${err.message}`, 'error'); }
+    });
+
+    shelbyBtn.classList.remove('hidden');
+    shelbyBtn.addEventListener('click', async () => {
+      try {
+        const res = await api('/api/repos/terminal', { method: 'POST', body: JSON.stringify({ path: repo.path }) });
+        openShelby('Terminal', res.taskId);
+      } catch (err) { showToast(`Failed to start: ${err.message}`, 'error'); }
     });
 
     auditBtn.addEventListener('click', async () => {
@@ -1057,3 +1152,12 @@ document.getElementById('themeToggleBtn').addEventListener('click', () => {
     await scanRepos();
   }
 })();
+
+// Close custom dropdowns when clicking outside
+document.addEventListener('click', e => {
+  if (!e.target.closest('.quick-actions-dropdown')) {
+    document.querySelectorAll('.quick-actions-dropdown[open]').forEach(dropdown => {
+      dropdown.removeAttribute('open');
+    });
+  }
+});

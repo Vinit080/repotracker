@@ -14,7 +14,7 @@
 - **🪄 AI Git Sync**: Generate perfectly summarized commit messages instantly via Gemini AI and push changes with a single click.
 - **📊 WakaTime Integration**: See exactly how much time you've spent coding in each repository over the last 7 days.
 - **🔍 Global Search**: Fast `git grep` across all your local repositories at once, and easily find floating `TODO`s or `FIXME`s.
-- **📟 Shelby Terminal**: A fully integrated, lightweight slide-up terminal inside the dashboard. Streams processes via native Server-Sent Events (SSE) with zero external terminal-window popups.
+- **📟 Shelby Terminal**: A fully integrated, interactive slide-up terminal inside the dashboard powered by `xterm.js` and `node-pty`. Streams standard input/output over WebSockets for a true, real-time developer terminal experience directly in your browser.
 - **⚡ Language-Agnostic Task Runner**: Automatically parses `package.json`, `Makefile`, `Taskfile.yml`, and `scripts/` directories to expose 1-click Quick Actions across Node.js, Python, C++, Go, and more.
 - **💡 Direct Line Feedback**: Embedded, native feedback panel for users to send feature requests directly to the creators, powered silently by Formspree.
 - **🔄 1-Click Auto-Updater**: RepoTracker securely polls GitHub and drops a beautiful banner when new features are released. Click "Update Now" and it automatically pulls the latest code and installs dependencies.
@@ -79,12 +79,12 @@ Because RepoTracker interacts directly with your file system and executes shell 
 - **No Plaintext Passwords**: Authentication relies on PBKDF2-SHA512 hashing and secure, time-limited cryptographic session tokens.
 - **Sanitized Configurations**: Sensitive keys (GitHub PAT, Gemini Key) are never exposed to the frontend console.
 - **Command Injection Prevention**: Strict validation and shell-escaping prevent malicious execution through URL cloning or regex searches.
-- **Anti-DNS Rebinding / CSRF Guard**: Strictly allows only `localhost` access and enforces `Content-Type` validations on mutating requests.
+- **Anti-DNS Rebinding / CSRF Guard**: Strictly allows only `localhost` access and enforces `Origin` and `Host` validations across all REST and WebSocket connections, fully neutralizing Cross-Site WebSocket Hijacking (CSWSH) and standard CSRF attacks.
 
 ## 🛠️ Technology Stack
 
-- **Backend**: Node.js (Vanilla, zero heavy frameworks), `node-notifier` for native OS alerts.
-- **Frontend**: Vanilla JavaScript (ES6+), Semantic HTML5, and a custom lightweight Glassmorphic CSS design system.
+- **Backend**: Node.js (Vanilla, zero heavy frameworks), `node-pty` for native OS terminal spawning, `node-notifier` for native OS alerts.
+- **Frontend**: Vanilla JavaScript (ES6+), Semantic HTML5, `xterm.js` for robust terminal emulation, and a custom lightweight Glassmorphic CSS design system.
 - **Integrations**: GitHub API, WakaTime API, Google Gemini Pro.
 
 ## 🤝 Collaborators & Contributors

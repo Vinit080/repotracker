@@ -7,6 +7,7 @@
   <title>RepoTracker</title>
   <link rel="icon" href="/logo.svg">
   <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/vendor/xterm/css/xterm.css" />
 </head>
 
 <body>
@@ -400,15 +401,23 @@
       </div>
       <textarea class="note" rows="3" placeholder="Private note, next step, owner, release plan..."></textarea>
       <div class="card-actions">
-        <select class="quick-actions-select ghost hidden" style="appearance: auto; padding-right: 8px;">
-          <option value="">Quick Actions...</option>
-        </select>
+        <details class="quick-actions-dropdown hidden" style="position: relative;">
+          <summary class="ghost" style="list-style: none; cursor: pointer;">
+            Quick Actions...
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left: 6px; transform: translateY(1px);"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </summary>
+          <div class="dropdown-menu"></div>
+        </details>
         <button class="ghost setup-button" type="button"
           title="Pull latest code and automatically install dependencies">Pull & Setup</button>
         <button class="ghost audit-button" type="button" title="Dependency Audit">Audit</button>
         <button class="ghost aisync-button hidden" type="button" title="Auto-commit and push with AI">AI Sync
           🪄</button>
         <button class="ghost open-button" type="button">Open folder</button>
+        <button class="shelby-pro-btn hidden" type="button" title="Open Shelby Terminal">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 17l6-6-6-6"></path><path d="M12 19h8"></path></svg>
+          Shelby
+        </button>
         <button class="primary clone-button hidden" type="button">Clone to Local</button>
         <a class="remote-link" target="_blank" rel="noreferrer">Remote</a>
       </div>
@@ -417,6 +426,7 @@
 
   <!-- SHELBY TERMINAL -->
   <div id="shelbyTerminal" class="shelby-panel hidden">
+    <div class="shelby-resizer" id="shelbyResizer"></div>
     <div class="shelby-header">
       <span class="shelby-title">Shelby Terminal <span class="muted" id="shelbyStatus"></span></span>
       <div style="display:flex; gap: 8px;">
@@ -424,7 +434,9 @@
         <button id="shelbyCloseBtn" class="icon-button" style="padding: 4px 8px;">x</button>
       </div>
     </div>
-    <pre id="shelbyOutput" class="shelby-output"></pre>
+    <div class="shelby-content" style="padding: 0; display: flex; flex-direction: column;">
+      <div id="terminal-container" style="flex: 1; min-height: 0; width: 100%; padding: 12px; box-sizing: border-box;"></div>
+    </div>
   </div>
 
   <!-- FEEDBACK DIALOG -->
@@ -450,6 +462,8 @@
     </div>
   </div>
 
+  <script src="/vendor/xterm/lib/xterm.js"></script>
+  <script src="/vendor/xterm-addon-fit/lib/xterm-addon-fit.js"></script>
   <script type="module" src="/js/app.js"></script>
 </body>
 

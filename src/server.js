@@ -3,7 +3,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { PORT, CONFIG_FILE, DATA_DIR, PUBLIC_DIR, MIME_TYPES, DEFAULT_CONFIG } from './constants.js';
 import { writeJsonIfMissing, sendText, sendJson, readJson, writeJson, normalizeConfig } from './utils.js';
-import { handleApi } from './routes/api.js';
+import { handleApi, handleUpgrade } from './routes/api.js';
 import { scanRepos } from './git.js';
 import notifier from 'node-notifier';
 import { applySecurityHeaders, isAllowedHost, isAllowedOrigin, checkRateLimit, cleanupExpired, hashPassword } from './security.js';
@@ -137,4 +137,16 @@ server.on('error', (err) => {
   } else {
     throw err;
   }
+});
+
+server.on('upgrade', (request, socket, head) => {
+  if (!isAllowedHost(request) || !isAllowedOrigin(request)) {
+    socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
+    socket.destroy();
+    return;
+  }
+  handleUpgrade(request, socket, head).catch(err => {
+    console.error('WebSocket upgrade failed:', err);
+    socket.destroy();
+  });
 });

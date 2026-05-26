@@ -156,11 +156,8 @@ export function isAllowedHost(request) {
  * @param {import('node:http').IncomingMessage} request
  */
 export function isAllowedOrigin(request) {
-  const method = (request.method ?? '').toUpperCase();
-  if (method === 'GET' || method === 'HEAD') return true;
-
   const origin = request.headers.origin;
-  if (!origin) return true; // same-origin curl / non-browser clients
+  if (!origin) return true; // same-origin curl / non-browser clients / simple navigations
 
   try {
     const { hostname } = new URL(origin);
