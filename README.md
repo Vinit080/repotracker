@@ -92,8 +92,8 @@ Because RepoTracker interacts directly with your file system and executes shell 
 A massive thank you to the brilliant minds who helped bring this project to life. Your contributions, reviews, and ideas made RepoTracker possible:
 
 - **Vinzone** (Creator)
-- **Shravan Sharma** (Creator)
-- **Soham Jarad** (Creator)
+- **Shravan Sharma** (Creator)  github.com/Shravan403
+- **Soham Jarad** (Creator)     github.com/sohamjarad
 
 ---
 
