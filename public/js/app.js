@@ -523,6 +523,10 @@ function renderRepoCard(repo) {
   const pinButton = fragment.querySelector('.pin-button');
   const ring = fragment.querySelector('.health-ring');
   const ringText = fragment.querySelector('.health-ring span');
+  
+  ring.addEventListener('click', () => {
+    document.getElementById('healthInfoDialog').showModal();
+  });
   const chips = fragment.querySelector('.chips');
   const ghStats = fragment.querySelector('.github-stats');
   const wakaStats = fragment.querySelector('.wakatime-stats');

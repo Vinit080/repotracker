@@ -389,7 +389,7 @@
             <p class="path"></p>
           </div>
         </div>
-        <div class="health-ring" aria-label="Health score"><span></span></div>
+        <div class="health-ring" aria-label="Health score" title="Click to see calculation" style="cursor: pointer;"><span></span></div>
       </div>
       <div class="chips"></div>
       <div class="github-stats hidden"></div>
@@ -461,6 +461,26 @@
       </form>
     </div>
   </div>
+
+  <dialog id="healthInfoDialog">
+    <div class="settings-panel">
+      <div class="dialog-head">
+        <h2>Health Score Calculation</h2>
+        <button class="icon-button" value="cancel" onclick="document.getElementById('healthInfoDialog').close()">x</button>
+      </div>
+      <div style="font-size: 0.95rem; color: var(--text); line-height: 1.6; margin-top: 16px;">
+        <p style="margin-top: 0;">Every repository starts with a perfect score of <strong style="color: var(--accent);">100</strong>. Points are deducted based on Git hygiene:</p>
+        <ul style="margin: 16px 0; padding-left: 20px; color: var(--muted);">
+          <li style="margin-bottom: 8px;"><strong style="color: var(--text);">Uncommitted Changes:</strong> -4 pts per dirty file (max -30)</li>
+          <li style="margin-bottom: 8px;"><strong style="color: var(--text);">Unpushed Commits (Ahead):</strong> -6 pts per commit (max -18)</li>
+          <li style="margin-bottom: 8px;"><strong style="color: var(--text);">Missing Upstream (Behind):</strong> -8 pts per commit (max -24)</li>
+          <li style="margin-bottom: 8px;"><strong style="color: var(--text);">No Remote URL:</strong> -10 pts</li>
+          <li style="margin-bottom: 8px;"><strong style="color: var(--text);">Staleness (Code Rot):</strong> -10 pts if >7 days old, -20 pts if >30 days old</li>
+        </ul>
+        <p style="margin-bottom: 0;">Commit often, push regularly, and pull the latest changes to keep your rings perfectly pink!</p>
+      </div>
+    </div>
+  </dialog>
 
   <script src="/vendor/xterm/lib/xterm.js"></script>
   <script src="/vendor/xterm-addon-fit/lib/xterm-addon-fit.js"></script>

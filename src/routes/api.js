@@ -296,7 +296,7 @@ export async function handleApi(request, response) {
     try {
       await fs.access(repoPath);
       const command = process.platform === 'win32' ? 'explorer.exe' : process.platform === 'darwin' ? 'open' : 'xdg-open';
-      spawn(command, [repoPath], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
+      spawn(command, [repoPath], { detached: true, stdio: 'ignore' }).unref();
       sendJson(response, 200, { opened: repoPath });
     } catch { sendJson(response, 404, { error: 'Repository path not found' }); }
     return;

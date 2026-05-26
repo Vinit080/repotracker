@@ -453,6 +453,19 @@ textarea:focus {
   display: grid;
   place-items: center;
   background: conic-gradient(var(--accent) var(--score), color-mix(in srgb, var(--text) 9%, transparent) 0);
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease, filter 0.2s ease;
+}
+
+.health-ring:hover {
+  transform: scale(1.1);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 80%, transparent), 0 0 24px color-mix(in srgb, var(--accent) 40%, transparent);
+  filter: brightness(1.2);
+}
+
+.health-ring:active {
+  transform: scale(0.92);
+  box-shadow: 0 2px 4px color-mix(in srgb, var(--accent) 15%, transparent);
+  filter: brightness(0.9);
 }
 
 .health-ring span {
