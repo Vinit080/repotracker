@@ -33,7 +33,7 @@ RepoTracker is designed to be completely zero-configuration to start.
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/repotracker.git
+   git clone https://github.com/Vinit080/repotracker.git
    cd repotracker
    ```
 
