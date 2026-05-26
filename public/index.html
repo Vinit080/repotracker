@@ -279,13 +279,15 @@
     <div class="settings-panel">
       <div class="dialog-head">
         <h2>Select Clone Destination</h2>
-        <button class="icon-button" value="cancel" onclick="document.getElementById('cloneDialog').close()">x</button>
+        <form method="dialog">
+          <button class="icon-button" type="submit" value="cancel">x</button>
+        </form>
       </div>
       <p class="muted" style="margin-top: 8px; margin-bottom: 16px;">Choose a folder to clone this repository into:</p>
       <select id="cloneDestSelect"
         style="width: 100%; padding: 12px; margin-bottom: 16px; background: var(--input-bg); color: var(--text); border: 1px solid var(--border); border-radius: 8px;"></select>
       <menu>
-        <button class="primary" id="confirmCloneButton">Clone</button>
+        <button type="button" class="primary" id="confirmCloneButton">Clone</button>
       </menu>
     </div>
   </dialog>
@@ -313,70 +315,182 @@
     </div>
   </dialog>
 
-  <div id="landingScreen" class="hidden">
-    <div style="max-width: 800px; width: 100%; display: grid; gap: 40px; align-items: center; justify-content: center;">
+  <!-- ONBOARDING WIZARD -->
+  <div id="wizard">
+    <div class="wizard-card">
 
-      <div>
-        <div
-          style="width: 80px; height: 80px; border-radius: 20px; background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 20%, transparent), color-mix(in srgb, var(--danger) 10%, transparent)); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); box-shadow: 0 10px 30px color-mix(in srgb, var(--accent) 20%, transparent); display: flex; align-items: center; justify-content: center; margin: 0 auto 32px;">
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5"
-            stroke-linecap="round" stroke-linejoin="round"
-            style="filter: drop-shadow(0 0 8px color-mix(in srgb, var(--accent) 80%, transparent));">
+      <!-- Brand -->
+      <div class="wizard-brand">
+        <div class="wizard-brand-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <line x1="6" y1="3" x2="6" y2="15"></line>
             <circle cx="18" cy="6" r="3"></circle>
             <circle cx="6" cy="18" r="3"></circle>
             <path d="M18 9a9 9 0 0 1-9 9"></path>
           </svg>
         </div>
-        <h1 style="font-size: clamp(2.5rem, 6vw, 4rem); margin: 0 0 16px; letter-spacing: -0.02em;">Welcome to <span
-            style="background: linear-gradient(90deg, var(--text) 30%, var(--accent)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;">RepoTracker</span>
-        </h1>
-        <p class="muted" style="font-size: 1.25rem; max-width: 600px; margin: 0 auto; line-height: 1.6;">Your completely
-          local, private Git Mission Control. Track hundreds of repositories, generate AI-driven standups, and never
-          lose momentum again.</p>
+        <span class="wizard-brand-name">RepoTracker</span>
       </div>
 
-      <div
-        style="background: var(--panel-bg); padding: 40px; border-radius: 16px; border: 1px solid var(--border); box-shadow: var(--shadow); text-align: left; max-width: 500px; margin: 0 auto; width: 100%;">
-        <form id="onboardingForm">
-          <h3 style="margin-top: 0; margin-bottom: 24px; font-size: 1.4rem;">Let's get set up</h3>
+      <!-- Progress dots -->
+      <div class="wizard-progress">
+        <div class="wizard-dot active" data-dot="1"></div>
+        <div class="wizard-dot" data-dot="2"></div>
+        <div class="wizard-dot" data-dot="3"></div>
+        <div class="wizard-dot" data-dot="4"></div>
+        <span class="wizard-step-label" id="wizardStepLabel">Step 1 of 4</span>
+      </div>
 
-          <label style="display: block; margin-bottom: 20px;">
-            <span style="display: block; margin-bottom: 8px; font-weight: 500; color: var(--muted);">What should we call
-              you? (Optional)</span>
-            <input id="onboardingNameInput" type="text" placeholder="e.g. John"
-              style="width: 100%; padding: 14px; font-size: 1rem;">
-          </label>
+      <!-- Step content -->
+      <div class="wizard-body">
 
-          <label style="display: block; margin-bottom: 20px;">
-            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px;">
-              <span style="font-weight: 500; color: var(--muted);">Where do you keep your code?</span>
-              <button type="button" class="ghost" id="onboardingBrowseBtn"
-                style="min-height: 24px; padding: 4px 12px; font-size: 0.85rem;">Browse...</button>
-            </div>
-            <textarea id="onboardingRootsInput" rows="3" placeholder="C:\Users\Name\Projects&#10;C:\Work\Repositories"
-              style="width: 100%; padding: 14px; font-size: 1rem;"></textarea>
-          </label>
+        <!-- ── STEP 1: Welcome + Password ─────────────────────────────── -->
+        <div class="wizard-step active" id="wizardStep1">
+          <span class="wizard-icon">👋</span>
+          <h2 class="wizard-heading">Welcome to RepoTracker</h2>
+          <p class="wizard-sub">Your private, local Git mission control. Let's get you set up in under a minute.</p>
 
-          <div
-            style="background: color-mix(in srgb, var(--info) 10%, transparent); padding: 16px; border-radius: 8px; border: 1px solid color-mix(in srgb, var(--info) 20%, transparent); margin-bottom: 24px;">
-            <label style="display: block;">
-              <span style="display: block; margin-bottom: 8px; font-weight: 500; color: var(--info);">GitHub Personal
-                Access Token (Optional)</span>
-              <p style="font-size: 0.85rem; color: color-mix(in srgb, var(--info) 80%, var(--bg)); margin: 0 0 12px 0;">
-                Allows RepoTracker to fetch Cloud Repositories, Stars, and CI Statuses securely without a database.</p>
-              <input id="onboardingPatInput" type="password" placeholder="ghp_..."
-                style="width: 100%; padding: 12px; font-size: 1rem; border-color: color-mix(in srgb, var(--info) 30%, transparent);">
-            </label>
+          <div class="wizard-field">
+            <label for="wiz-name">What should we call you? <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
+            <input id="wiz-name" type="text" placeholder="e.g. Vinit" autocomplete="name">
           </div>
 
-          <button type="submit" class="primary"
-            style="width: 100%; justify-content: center; padding: 16px; font-size: 1.15rem;">Enter Dashboard</button>
-        </form>
-      </div>
+          <div class="wizard-field">
+            <label for="wiz-pw">Dashboard password</label>
+            <input id="wiz-pw" type="password" placeholder="Create a password" autocomplete="new-password">
+          </div>
+          <div class="wizard-field">
+            <label for="wiz-pw-confirm">Confirm password</label>
+            <input id="wiz-pw-confirm" type="password" placeholder="Repeat the password" autocomplete="new-password">
+          </div>
+          <p class="wizard-pw-error" id="wizPwError"></p>
 
-    </div>
-  </div>
+          <label class="wizard-skip-row" id="wizSkipPwRow">
+            <input type="checkbox" id="wizSkipPwCheck">
+            <span>Skip password protection — I'm the only person who uses this machine</span>
+          </label>
+
+          <div class="wizard-actions">
+            <button class="primary" id="wizStep1Next" type="button">Get Started →</button>
+          </div>
+        </div>
+
+        <!-- ── STEP 2: Add Code Folders ──────────────────────────────── -->
+        <div class="wizard-step" id="wizardStep2">
+          <span class="wizard-icon">📂</span>
+          <h2 class="wizard-heading">Add your code folders</h2>
+          <p class="wizard-sub">RepoTracker will scan these for Git repositories. You can add more later in Settings.</p>
+
+          <div class="wizard-folder-list" id="wizFolderList">
+            <!-- folder chips injected here -->
+          </div>
+          <button class="wizard-add-folder-btn" id="wizAddFolderBtn" type="button">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            Add Folder
+          </button>
+
+          <div class="wizard-actions" style="margin-top:20px;">
+            <button class="wizard-back-btn" id="wizStep2Back" type="button">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"></polyline></svg>
+              Back
+            </button>
+            <button class="primary" id="wizStep2Next" type="button">Continue →</button>
+            <button class="wizard-skip-btn" id="wizStep2Skip" type="button">Skip for now</button>
+          </div>
+        </div>
+
+        <!-- ── STEP 3: GitHub Token ───────────────────────────────────── -->
+        <div class="wizard-step" id="wizardStep3">
+          <span class="wizard-icon">🐙</span>
+          <h2 class="wizard-heading">Connect GitHub</h2>
+          <p class="wizard-sub">Optional — unlocks PR status, Actions CI, cloud repos, and cloning.</p>
+
+          <div class="wizard-gh-steps">
+            <div class="wizard-gh-step">
+              <div class="wizard-gh-step-num">1</div>
+              <div class="wizard-gh-step-body">
+                <a href="https://github.com/settings/tokens/new?scopes=repo,read:user&description=RepoTracker" target="_blank" rel="noreferrer">Open GitHub token page ↗</a>
+                — sign in if prompted, then click <strong>Generate token</strong>.
+              </div>
+            </div>
+            <div class="wizard-gh-step">
+              <div class="wizard-gh-step-num">2</div>
+              <div class="wizard-gh-step-body">
+                Select these permissions:
+                <div class="wizard-perms">
+                  <div class="wizard-perm-item"><span>✅</span> Actions (read)</div>
+                  <div class="wizard-perm-item"><span>✅</span> Contents (read)</div>
+                  <div class="wizard-perm-item"><span>✅</span> Issues (read)</div>
+                  <div class="wizard-perm-item"><span>✅</span> Pull Requests (read)</div>
+                  <div class="wizard-perm-item"><span>✅</span> Commit statuses (read)</div>
+                </div>
+              </div>
+            </div>
+            <div class="wizard-gh-step">
+              <div class="wizard-gh-step-num">3</div>
+              <div class="wizard-gh-step-body">
+                Paste your token here and verify it:
+                <div class="wizard-verify-row">
+                  <input type="password" id="wizGhToken" placeholder="ghp_..." autocomplete="off">
+                  <button class="wizard-verify-btn" id="wizVerifyBtn" type="button">Verify</button>
+                </div>
+                <div class="wizard-token-status" id="wizTokenStatus"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="wizard-actions">
+            <button class="wizard-back-btn" id="wizStep3Back" type="button">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"></polyline></svg>
+              Back
+            </button>
+            <button class="primary" id="wizStep3Next" type="button">Continue →</button>
+            <button class="wizard-skip-btn" id="wizStep3Skip" type="button">Skip — I'll do this later</button>
+          </div>
+        </div>
+
+        <!-- ── STEP 4: Optional APIs ─────────────────────────────────── -->
+        <div class="wizard-step" id="wizardStep4">
+          <span class="wizard-icon">⚡</span>
+          <h2 class="wizard-heading">Power-ups</h2>
+          <p class="wizard-sub">All optional. You can add or change these any time in Settings.</p>
+
+          <div class="wizard-powerup">
+            <div class="wizard-powerup-icon">🤖</div>
+            <div class="wizard-powerup-body">
+              <h4>Gemini AI</h4>
+              <p>Enables AI commit messages and weekly standup reports.</p>
+              <input type="password" id="wizAiKey" placeholder="Paste Gemini API key" autocomplete="off" style="margin-bottom:6px;">
+              <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer">Get one free at aistudio.google.com ↗</a>
+              <p class="wizard-powerup-hint">Key saved. We'll let you know if it doesn't work when you first use it.</p>
+            </div>
+          </div>
+
+          <div class="wizard-powerup">
+            <div class="wizard-powerup-icon">⏱</div>
+            <div class="wizard-powerup-body">
+              <h4>WakaTime</h4>
+              <p>Shows exact coding time per repo this week.</p>
+              <input type="password" id="wizWakaKey" placeholder="Paste WakaTime API key" autocomplete="off" style="margin-bottom:6px;">
+              <a href="https://wakatime.com/api-key" target="_blank" rel="noreferrer">Find yours at wakatime.com/api-key ↗</a>
+              <p class="wizard-powerup-hint">Key saved. We'll let you know if it doesn't work when you first use it.</p>
+            </div>
+          </div>
+
+          <div class="wizard-actions">
+            <button class="wizard-back-btn" id="wizStep4Back" type="button">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"></polyline></svg>
+              Back
+            </button>
+            <button class="primary" id="wizFinishBtn" type="button">Finish Setup →</button>
+            <button class="wizard-skip-btn" id="wizSkipAllBtn" type="button">Skip all</button>
+          </div>
+        </div>
+
+      </div><!-- /wizard-body -->
+    </div><!-- /wizard-card -->
+  </div><!-- /#wizard -->
+
 
   <!-- TEMPLATES -->
   <template id="repoCardTemplate">

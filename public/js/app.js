@@ -14,14 +14,39 @@ const state = {
 // ─── DOM References ───────────────────────────────────────────────────────────
 const el = {
   shell: document.querySelector('.shell'),
-  landingScreen: document.querySelector('#landingScreen'),
+  wizard: document.querySelector('#wizard'),
 
-  // Onboarding
-  onboardingForm: document.querySelector('#onboardingForm'),
-  onboardingNameInput: document.querySelector('#onboardingNameInput'),
-  onboardingRootsInput: document.querySelector('#onboardingRootsInput'),
-  onboardingBrowseBtn: document.querySelector('#onboardingBrowseBtn'),
-  onboardingPatInput: document.querySelector('#onboardingPatInput'),
+  // Wizard
+  wizardEl: document.querySelector('#wizard'),
+  wizardStepLabel: document.querySelector('#wizardStepLabel'),
+  wizardDots: document.querySelectorAll('.wizard-dot'),
+  wizardSteps: document.querySelectorAll('.wizard-step'),
+  // Step 1
+  wizStep1Next: document.querySelector('#wizStep1Next'),
+  wizName: document.querySelector('#wiz-name'),
+  wizPw: document.querySelector('#wiz-pw'),
+  wizPwConfirm: document.querySelector('#wiz-pw-confirm'),
+  wizPwError: document.querySelector('#wizPwError'),
+  wizSkipPwCheck: document.querySelector('#wizSkipPwCheck'),
+  // Step 2
+  wizStep2Back: document.querySelector('#wizStep2Back'),
+  wizStep2Next: document.querySelector('#wizStep2Next'),
+  wizStep2Skip: document.querySelector('#wizStep2Skip'),
+  wizFolderList: document.querySelector('#wizFolderList'),
+  wizAddFolderBtn: document.querySelector('#wizAddFolderBtn'),
+  // Step 3
+  wizStep3Back: document.querySelector('#wizStep3Back'),
+  wizStep3Next: document.querySelector('#wizStep3Next'),
+  wizStep3Skip: document.querySelector('#wizStep3Skip'),
+  wizGhToken: document.querySelector('#wizGhToken'),
+  wizVerifyBtn: document.querySelector('#wizVerifyBtn'),
+  wizTokenStatus: document.querySelector('#wizTokenStatus'),
+  // Step 4
+  wizStep4Back: document.querySelector('#wizStep4Back'),
+  wizFinishBtn: document.querySelector('#wizFinishBtn'),
+  wizSkipAllBtn: document.querySelector('#wizSkipAllBtn'),
+  wizAiKey: document.querySelector('#wizAiKey'),
+  wizWakaKey: document.querySelector('#wizWakaKey'),
 
   // Auth
   authDialog: document.querySelector('#authDialog'),
@@ -161,9 +186,8 @@ function openShelby(title, taskId) {
 
   if (shelbyWs) shelbyWs.close();
 
-  const token = localStorage.getItem('repo_auth') || '';
   const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  shelbyWs = new WebSocket(`${protocol}//${location.host}/api/tasks/stream?taskId=${taskId}&token=${token}`);
+  shelbyWs = new WebSocket(`${protocol}//${location.host}/api/tasks/stream?taskId=${taskId}`);
 
   shelbyWs.onopen = () => {
     shelbyWs.send(JSON.stringify({ type: 'resize', cols: shelbyTerminalInstance.cols, rows: shelbyTerminalInstance.rows }));
@@ -297,8 +321,10 @@ function _drainToast() {
 
 function relativeTime(timestamp) {
   if (!timestamp) return 'No commits yet';
-  const diffDays = Math.round((timestamp - Date.now()) / 86_400_000);
-  if (Math.abs(diffDays) < 1) return 'today';
+  const targetDate = new Date(timestamp);
+  const now = new Date();
+  const diffDays = Math.round((targetDate.setHours(0,0,0,0) - now.setHours(0,0,0,0)) / 86_400_000);
+  if (diffDays === 0) return 'today';
   if (Math.abs(diffDays) < 45) return relativeFormatter.format(diffDays, 'day');
   return relativeFormatter.format(Math.round(diffDays / 30), 'month');
 }
@@ -566,9 +592,9 @@ function renderRepoCard(repo) {
     const ci = repo.github.ci === 'failure' ? '<span class="chip danger">CI Failing</span>'
       : repo.github.ci === 'success' ? '<span class="chip info">CI Passing</span>' : '';
     ghStats.innerHTML = `<div class="gh-metrics">
-      <span class="gh-stat" title="Stars">★ ${repo.github.stars}</span>
-      <span class="gh-stat" title="Open Issues">⨀ ${repo.github.issues}</span>
-      <span class="gh-stat" title="Pull Requests">⎇ ${repo.github.prs}</span>
+      <span class="gh-stat" title="Stars">★ ${Number(repo.github.stars) || 0}</span>
+      <span class="gh-stat" title="Open Issues">⨀ ${Number(repo.github.issues) || 0}</span>
+      <span class="gh-stat" title="Pull Requests">⎇ ${Number(repo.github.prs) || 0}</span>
       ${ci}
     </div>`;
   }
@@ -584,13 +610,14 @@ function renderRepoCard(repo) {
     statusLine.innerHTML = `<span>${escapeHtml(langText)}</span><span>Remote Repository</span>`;
     commitLine.innerHTML = `<span>Not downloaded</span><span></span>`;
   } else {
-    statusLine.innerHTML = `<span>${escapeHtml(langText)}</span><span>${repo.commitCount} commits</span>`;
+    statusLine.innerHTML = `<span>${escapeHtml(langText)}</span><span>${Number(repo.commitCount) || 0} commits</span>`;
     commitLine.innerHTML = repo.lastCommit
       ? `<span title="${escapeAttribute(repo.lastCommit.subject)}">${escapeHtml(repo.lastCommit.hash)} ${escapeHtml(repo.lastCommit.subject)}</span><span>${relativeTime(repo.lastCommit.timestamp)}</span>`
       : '<span>No commits yet</span><span></span>';
   }
 
   tagInput.value = (repo.tags || []).join(', ');
+  // M4 Contract: notes are stored raw and must only be rendered via .value or .textContent, never via innerHTML
   note.value = repo.note || '';
 
   // Quick actions (Shelby)
@@ -634,7 +661,12 @@ function renderRepoCard(repo) {
     openButton.classList.add('hidden');
     cloneBtn.classList.remove('hidden');
     cloneBtn.addEventListener('click', () => {
-      el.cloneDestSelect.innerHTML = (state.config?.roots || [])
+      const roots = state.config?.roots || [];
+      if (roots.length === 0) {
+        showToast('Please configure at least one folder in Settings to clone repositories into.', 'warn');
+        return;
+      }
+      el.cloneDestSelect.innerHTML = roots
         .map(r => `<option value="${escapeAttribute(r)}">${escapeHtml(r)}</option>`).join('');
       el.confirmCloneButton.onclick = async () => {
         el.confirmCloneButton.disabled = true;
@@ -760,11 +792,9 @@ async function saveSettings(event) {
       : 'Leave blank for no password';
     if (appPassword) {
       // After setting a new password, the user gets a new session token on next login.
-      // For now, store the returned session or do a fresh login prompt.
-      localStorage.setItem('repo_auth', await _refreshSession(appPassword));
+      await _refreshSession(appPassword);
       el.logoutBtn.classList.remove('hidden');
     } else if (!state.config.appPasswordSet) {
-      localStorage.removeItem('repo_auth');
       el.logoutBtn.classList.add('hidden');
     }
     el.saveSettingsButton.textContent = 'Saved!';
@@ -781,17 +811,12 @@ async function saveSettings(event) {
 /** After changing the password, get a fresh session token silently. */
 async function _refreshSession(newPassword) {
   try {
-    const res = await fetch('/api/login', {
+    await fetch('/api/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ password: newPassword })
     });
-    if (res.ok) {
-      const data = await res.json();
-      return data.token;
-    }
   } catch { /* ignore */ }
-  return localStorage.getItem('repo_auth') || '';
 }
 
 // ─── Timeline ─────────────────────────────────────────────────────────────────
@@ -974,8 +999,6 @@ el.authForm.addEventListener('submit', async e => {
       body: JSON.stringify({ password })
     });
     if (res.ok) {
-      const data = await res.json();
-      localStorage.setItem('repo_auth', data.token);
       el.authDialog.close();
       el.shell.style.display = '';
       el.authPasswordInput.value = '';
@@ -988,8 +1011,8 @@ el.authForm.addEventListener('submit', async e => {
 });
 
 // Logout
-el.logoutBtn.addEventListener('click', () => {
-  localStorage.removeItem('repo_auth');
+el.logoutBtn.addEventListener('click', async () => {
+  await api('/api/logout', { method: 'POST', body: JSON.stringify({}) });
   location.reload();
 });
 
@@ -1067,38 +1090,249 @@ async function handleFolderBrowse(textareaElement) {
   }
 }
 
-el.onboardingBrowseBtn.addEventListener('click', () => handleFolderBrowse(el.onboardingRootsInput));
 el.settingsBrowseBtn.addEventListener('click', () => handleFolderBrowse(el.rootsInput));
 
-// Onboarding form
-el.onboardingForm.addEventListener('submit', async e => {
-  e.preventDefault();
-  const userName = el.onboardingNameInput.value.trim();
-  const roots = el.onboardingRootsInput.value.split(/\r?\n/).map(r => r.trim()).filter(Boolean);
-  const githubPat = el.onboardingPatInput.value.trim();
 
-  // Only override existing values if the user actually typed something.
-  // Never wipe keys that are already saved but not shown on the onboarding screen.
+// ── Onboarding Wizard ────────────────────────────────────────────────────────
+
+/** All transient wizard state — discarded after completeWizard() is called. */
+const wizard = {
+  step: 1,
+  password: '',   // non-empty only if user set one (and it matched confirmation)
+  roots: [],      // [{ path }]
+  githubToken: '', // only set if wizard.githubUser !== null
+  githubUser: null, // { login, name } — set by successful verification
+  aiKey: '',
+  wakaKey: '',
+};
+
+/** Update progress dots and step label. */
+function goToStep(n, back = false) {
+  el.wizardSteps.forEach(s => {
+    s.classList.remove('active', 'slide-back');
+  });
+  el.wizardDots.forEach((dot, i) => {
+    dot.classList.toggle('active', i + 1 === n);
+    dot.classList.toggle('done', i + 1 < n);
+  });
+  const target = document.querySelector(`#wizardStep${n}`);
+  if (target) {
+    if (back) target.classList.add('slide-back');
+    target.classList.add('active');
+  }
+  el.wizardStepLabel.textContent = `Step ${n} of 4`;
+  wizard.step = n;
+}
+
+/** Render the folder chip list for step 2. */
+function renderWizFolders() {
+  el.wizFolderList.replaceChildren(
+    ...wizard.roots.map(({ path }) => {
+      const chip = document.createElement('div');
+      chip.className = 'wizard-folder-chip';
+      chip.innerHTML = `
+        <span style="font-size:1.1rem">📁</span>
+        <span class="folder-path" title="${escapeAttribute(path)}">${escapeHtml(path)}</span>
+        <span class="folder-count">(added)</span>
+        <button class="wizard-folder-remove" type="button" aria-label="Remove folder">✕</button>
+      `;
+      chip.querySelector('.wizard-folder-remove').addEventListener('click', () => {
+        wizard.roots = wizard.roots.filter(r => r.path !== path);
+        renderWizFolders();
+      });
+      return chip;
+    })
+  );
+}
+
+/** Show the wizard and optionally pre-populate root suggestions. */
+async function showWizard() {
+  el.wizard.classList.add('active');
+  el.shell.style.display = 'none';
+  // Pre-populate suggestions as auto-added folders on step 2
+  try {
+    const res = await api('/api/suggest-roots');
+    if (res.suggestions?.length) {
+      wizard.roots = res.suggestions.map(p => ({ path: p }));
+      renderWizFolders();
+    }
+  } catch { /* no suggestions — fine */ }
+}
+
+/** Single exit point — called by Finish and all Skip paths. */
+async function completeWizard() {
+  // Disable all finish/skip buttons to prevent double-submit
+  [el.wizFinishBtn, el.wizSkipAllBtn].forEach(b => { if (b) b.disabled = true; });
+
+  const roots = wizard.roots.map(r => r.path);
+  const userName = el.wizName?.value.trim() || '';
+  // Only save a GitHub token if it was successfully verified
+  const githubPat = wizard.githubUser ? wizard.githubToken : '';
+  const aiApiKey = wizard.aiKey;
+  const wakatimeApiKey = wizard.wakaKey;
+  const appPassword = wizard.password;
+
   const payload = {
     ...state.config,
     roots,
     ...(userName ? { userName } : {}),
-    ...(githubPat ? { githubPat } : {})
+    ...(githubPat ? { githubPat } : {}),
+    ...(aiApiKey ? { aiApiKey } : {}),
+    ...(wakatimeApiKey ? { wakatimeApiKey } : {}),
+    ...(appPassword ? { appPassword } : {}),
+    onboardingComplete: true,  // must-fix: prevents infinite loop on skip
   };
 
   try {
     state.config = await api('/api/config', { method: 'PUT', body: JSON.stringify(payload) });
+    // Sync settings panel fields
     el.userNameInput.value = state.config.userName || '';
     el.rootsInput.value = (state.config.roots || []).join('\n');
     el.patInput.value = state.config.githubPat || '';
     el.aiKeyInput.value = state.config.aiApiKey || '';
     el.wakaKeyInput.value = state.config.wakatimeApiKey || '';
-
-    el.landingScreen.classList.add('hidden');
-    el.landingScreen.style.display = 'none';
+    if (appPassword) {
+      await _refreshSession(appPassword);
+      el.logoutBtn.classList.remove('hidden');
+    }
+    // Enter the dashboard
+    el.wizard.classList.remove('active');
     el.shell.style.display = '';
     await scanRepos();
-  } catch (err) { showToast('Failed to save: ' + err.message, 'error'); }
+  } catch (err) {
+    showToast('Setup failed: ' + err.message, 'error');
+    [el.wizFinishBtn, el.wizSkipAllBtn].forEach(b => { if (b) b.disabled = false; });
+  }
+}
+
+// ── Wizard event listeners ────────────────────────────────────────────────────
+
+// Step 1 — password validation
+el.wizPw?.addEventListener('input', validatePwFields);
+el.wizPwConfirm?.addEventListener('input', validatePwFields);
+el.wizSkipPwCheck?.addEventListener('change', validatePwFields);
+
+function validatePwFields() {
+  const pw = el.wizPw.value;
+  const confirm = el.wizPwConfirm.value;
+  const skipping = el.wizSkipPwCheck.checked;
+  el.wizPwError.textContent = '';
+  if (skipping) {
+    el.wizPw.value = '';
+    el.wizPwConfirm.value = '';
+    el.wizStep1Next.disabled = false;
+    return;
+  }
+  if (pw && confirm && pw !== confirm) {
+    el.wizPwError.textContent = 'Passwords do not match.';
+    el.wizStep1Next.disabled = true;
+    return;
+  }
+  el.wizStep1Next.disabled = false;
+}
+
+el.wizStep1Next?.addEventListener('click', () => {
+  const pw = el.wizPw.value;
+  const confirm = el.wizPwConfirm.value;
+  const skipping = el.wizSkipPwCheck.checked;
+
+  if (!skipping && pw && pw !== confirm) {
+    el.wizPwError.textContent = 'Passwords do not match.';
+    return;
+  }
+  if (!skipping && pw && !confirm) {
+    el.wizPwError.textContent = 'Please confirm your password.';
+    return;
+  }
+
+  wizard.password = (!skipping && pw === confirm) ? pw : '';
+  goToStep(2);
+});
+
+// Step 2 — folder management
+el.wizStep2Back?.addEventListener('click', () => goToStep(1, true));
+
+el.wizAddFolderBtn?.addEventListener('click', async () => {
+  try {
+    const res = await api('/api/dialog/folder', { method: 'POST', body: JSON.stringify({}) });
+    if (res.path && !wizard.roots.find(r => r.path === res.path)) {
+      wizard.roots.push({ path: res.path });
+      renderWizFolders();
+    }
+  } catch (e) {
+    if (e.message !== 'Canceled') showToast('Browse failed: ' + e.message, 'error');
+  }
+});
+
+el.wizStep2Next?.addEventListener('click', () => goToStep(3));
+el.wizStep2Skip?.addEventListener('click', () => goToStep(3));
+
+// Step 3 — GitHub token verification
+el.wizStep3Back?.addEventListener('click', () => goToStep(2, true));
+
+el.wizVerifyBtn?.addEventListener('click', async () => {
+  const token = el.wizGhToken.value.trim();
+  if (!token) {
+    el.wizTokenStatus.className = 'wizard-token-status error';
+    el.wizTokenStatus.textContent = 'Please paste a token first.';
+    return;
+  }
+  el.wizVerifyBtn.disabled = true;
+  el.wizVerifyBtn.textContent = 'Verifying...';
+  el.wizTokenStatus.className = 'wizard-token-status';
+  el.wizTokenStatus.textContent = '';
+
+  try {
+    const res = await api('/api/verify-github-token', { method: 'POST', body: JSON.stringify({ token }) });
+    if (res.ok) {
+      wizard.githubToken = token;
+      wizard.githubUser = { login: res.login, name: res.name };
+      el.wizTokenStatus.className = 'wizard-token-status success';
+      el.wizTokenStatus.textContent = `✅ Token verified — connected as @${res.login}`;
+    } else {
+      wizard.githubToken = '';
+      wizard.githubUser = null;
+      el.wizTokenStatus.className = 'wizard-token-status error';
+      el.wizTokenStatus.textContent = `❌ ${res.error || 'Token verification failed'}`;
+    }
+  } catch (err) {
+    wizard.githubToken = '';
+    wizard.githubUser = null;
+    el.wizTokenStatus.className = 'wizard-token-status error';
+    el.wizTokenStatus.textContent = `❌ ${err.message}`;
+  } finally {
+    el.wizVerifyBtn.disabled = false;
+    el.wizVerifyBtn.textContent = 'Verify';
+  }
+});
+
+el.wizStep3Next?.addEventListener('click', () => {
+  const currentInput = el.wizGhToken.value.trim();
+  if (currentInput !== wizard.githubToken) {
+    wizard.githubToken = '';
+    wizard.githubUser = null;
+  }
+  goToStep(4);
+});
+el.wizStep3Skip?.addEventListener('click', () => {
+  wizard.githubToken = '';
+  wizard.githubUser = null;
+  goToStep(4);
+});
+
+// Step 4 — power-up keys
+el.wizStep4Back?.addEventListener('click', () => goToStep(3, true));
+
+el.wizFinishBtn?.addEventListener('click', () => {
+  wizard.aiKey = el.wizAiKey?.value.trim() || '';
+  wizard.wakaKey = el.wizWakaKey?.value.trim() || '';
+  completeWizard();
+});
+
+el.wizSkipAllBtn?.addEventListener('click', () => {
+  wizard.aiKey = '';
+  wizard.wakaKey = '';
+  completeWizard();
 });
 
 // AI Standup
@@ -1132,26 +1366,13 @@ document.getElementById('themeToggleBtn').addEventListener('click', () => {
   const ok = await loadConfig();
   if (!ok) return; // auth dialog is now showing
 
-  if (!state.config.roots || state.config.roots.length === 0) {
-    // New user — show onboarding, hide dashboard
-    el.shell.style.display = 'none';
-    el.landingScreen.style.display = '';
-    el.landingScreen.classList.remove('hidden');
-
-    // Auto-detect common code folders
-    try {
-      const res = await api('/api/suggest-roots');
-      if (res.suggestions?.length) {
-        el.onboardingRootsInput.value = res.suggestions.join('\n');
-        el.onboardingRootsInput.style.border = '1px solid var(--accent)';
-        el.onboardingRootsInput.style.backgroundColor = 'color-mix(in srgb, var(--accent) 5%, transparent)';
-      }
-    } catch { /* no suggestions available */ }
+  if (!state.config.onboardingComplete) {
+    // New user (or user who skipped before this flag existed) — show wizard
+    await showWizard();
   } else {
     // Returning user — show dashboard and scan
     el.scanMeta.textContent = 'Ready. Click Scan repos to refresh.';
-    el.landingScreen.style.display = 'none';
-    el.landingScreen.classList.add('hidden');
+    el.wizard.classList.remove('active');
     el.shell.style.display = '';
     await scanRepos();
   }

@@ -1,0 +1,12 @@
+{
+    "aiApiKey":  "",
+    "userName":  "Codex Test",
+    "wakatimeApiKey":  "",
+    "onboardingComplete":  true,
+    "appPasswordHash":  "",
+    "maxDepth":  2,
+    "githubPat":  "",
+    "roots":  [
+                  "D:\\repotracker"
+              ]
+}

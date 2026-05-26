@@ -1,10 +1,7 @@
 export async function api(path, options = {}) {
-  const auth = localStorage.getItem('repo_auth');
-
   const response = await fetch(path, {
     headers: {
       ...(options.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
-      ...(auth ? { 'Authorization': `Bearer ${auth}` } : {}),
       ...(options.headers || {})
     },
     ...options
@@ -19,7 +16,9 @@ export async function api(path, options = {}) {
   }
 
   if (!response.ok) {
-    throw new Error(`Request failed: ${response.status}`);
+    let msg = `Request failed: ${response.status}`;
+    try { const body = await response.json(); if (body.error) msg = body.error; } catch {}
+    throw new Error(msg);
   }
 
   return response.json();
