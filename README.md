@@ -9,9 +9,10 @@
 ## ✨ Features
 
 - **📡 Automatic Discovery**: Point RepoTracker at your root folders and it instantly maps every Git repository recursively.
+- **🪄 Setup Wizard**: A beautiful, guided onboarding experience that seamlessly walks you through adding folders, creating passwords, and configuring API keys on your very first launch.
 - **📂 Native Folder Browser**: Ditch the manual typing. Use the built-in OS dialog to seamlessly point RepoTracker at your code directories with zero typos.
 - **❤️ Health Scoring**: Repositories are automatically scored based on uncommitted changes, unpushed commits, staleness, and branch health.
-- **🪄 AI Git Sync**: Generate perfectly summarized commit messages instantly via Gemini AI and push changes with a single click.
+- **🤖 AI Git Sync**: Generate perfectly summarized commit messages instantly via Gemini AI and push changes with a single click.
 - **📊 WakaTime Integration**: See exactly how much time you've spent coding in each repository over the last 7 days.
 - **🔍 Global Search**: Fast `git grep` across all your local repositories at once, and easily find floating `TODO`s or `FIXME`s.
 - **📟 Shelby Terminal**: A fully integrated, interactive slide-up terminal inside the dashboard powered by `xterm.js` and `node-pty`. Streams standard input/output over WebSockets for a true, real-time developer terminal experience directly in your browser.
