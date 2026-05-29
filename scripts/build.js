@@ -20,9 +20,16 @@ async function build() {
   // We don't want to bundle .git or large devDependencies, but caxa doesn't prune well.
   // We'll just let caxa bundle the whole directory excluding .git.
   
-  const isWin = os.platform() === 'win32';
-  const ext = isWin ? '.exe' : '';
-  const outPath = path.join(DIST, `RepoTracker${ext}`);
+  const platform = os.platform();
+  let suffix = '-linux';
+  let ext = '';
+  if (platform === 'win32') {
+    suffix = '-win';
+    ext = '.exe';
+  } else if (platform === 'darwin') {
+    suffix = '-macos';
+  }
+  const outPath = path.join(DIST, `RepoTracker${suffix}${ext}`);
 
   console.log('\n🔨 Compiling with caxa...');
   try {
