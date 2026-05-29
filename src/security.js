@@ -1,10 +1,20 @@
-/**
+﻿/**
  * security.js — Rate limiting, security headers, Host-guard, CSRF,
  *               password hashing (PBKDF2), and session management.
+ *
+ * Sessions are persisted to data/sessions.json so they survive server
+ * restarts. All writes are atomic (tmp-rename pattern).
+ *
  * Zero external dependencies — Node.js built-ins only.
  */
 
 import { pbkdf2Sync, randomBytes, timingSafeEqual } from 'node:crypto';
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const SESSION_FILE = path.join(__dirname, '..', 'data', 'sessions.json');
 
 // ── Password Hashing (PBKDF2-SHA512, 100 000 iterations) ─────────────────────
 
@@ -46,25 +56,111 @@ export function verifyPassword(password, stored) {
 // ── Session Store ─────────────────────────────────────────────────────────────
 
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
-const _sessions = new Map(); // token → expiresAt (ms)
+/** token → expiresAt (ms) */
+const _sessions = new Map();
+
+// ── Session Persistence ───────────────────────────────────────────────────────
+
+/**
+ * Atomically write the current session map to disk.
+ * Uses tmp-file + rename to prevent data corruption on crash.
+ * Fire-and-forget — errors are logged but never thrown.
+ */
+async function persistSessions() {
+  try {
+    const obj = Object.fromEntries(_sessions);
+    const tmp = SESSION_FILE + '.tmp';
+    await fs.writeFile(tmp, JSON.stringify(obj, null, 2));
+    await fs.rename(tmp, SESSION_FILE);
+  } catch (err) {
+    console.warn('⚠️  Failed to persist sessions:', err.message);
+  }
+}
+
+/**
+ * Load sessions from disk on startup. Prunes already-expired tokens.
+ * Call once during server boot before accepting requests.
+ */
+export async function loadSessions() {
+  try {
+    const raw = JSON.parse(await fs.readFile(SESSION_FILE, 'utf8'));
+    const now = Date.now();
+    let loaded = 0;
+    let pruned = 0;
+    for (const [token, exp] of Object.entries(raw)) {
+      if (typeof exp === 'number' && exp > now) {
+        _sessions.set(token, exp);
+        loaded++;
+      } else {
+        pruned++;
+      }
+    }
+    if (loaded > 0 || pruned > 0) {
+      console.log(`✅ Sessions restored: ${loaded} active, ${pruned} expired pruned.`);
+    }
+  } catch (err) {
+    if (err.code !== 'ENOENT') {
+      console.warn('⚠️  Could not load sessions file:', err.message);
+    }
+    // ENOENT is normal on first run — no sessions yet
+  }
+}
 
 /**
  * Create a new cryptographically random session token, valid for 7 days.
+ * Persists the updated session store to disk.
  * @returns {string}
  */
 export function createSession() {
   const token = randomBytes(32).toString('hex');
   _sessions.set(token, Date.now() + SESSION_TTL_MS);
+  persistSessions(); // fire-and-forget
   return token;
 }
 
 export function destroySession(token) {
-  if (token) _sessions.delete(token);
+  if (token && _sessions.has(token)) {
+    _sessions.delete(token);
+    persistSessions(); // fire-and-forget
+  }
+}
+
+// ── Team Invite Tokens ─────────────────────────────────────────────────────────
+/**
+ * Generate a new team invite token (256-bit random hex).
+ * The token is stored in config.teamTokens by the caller.
+ * @param {string} label  Human-readable label for this token (e.g. 'Alice')
+ * @returns {{ token: string, label: string, createdAt: string }}
+ */
+export function generateTeamToken(label = 'Team Member') {
+  return {
+    token: randomBytes(32).toString('hex'),
+    label: String(label).slice(0, 64),
+    createdAt: new Date().toISOString(),
+  };
+}
+
+/**
+ * Check whether a raw Authorization Bearer token is a valid team invite token.
+ * Accepts the teamTokens array from config.
+ * @param {string} raw               - The raw token string from the Authorization header
+ * @param {Array}  teamTokens        - config.teamTokens array
+ * @returns {boolean}
+ */
+export function isValidTeamToken(raw, teamTokens) {
+  if (!raw || !Array.isArray(teamTokens) || !teamTokens.length) return false;
+  return teamTokens.some(entry => {
+    try {
+      const a = Buffer.from(raw, 'hex');
+      const b = Buffer.from(entry.token, 'hex');
+      return a.length === b.length && timingSafeEqual(a, b);
+    } catch { return false; }
+  });
 }
 
 /**
  * Validate a session token — returns true if valid and not expired.
- * Removes the token if it has expired.
+ * Removes and persists if expired.
  * @param {string} token
  * @returns {boolean}
  */
@@ -74,6 +170,7 @@ export function isValidSession(token) {
   if (!exp) return false;
   if (Date.now() > exp) {
     _sessions.delete(token);
+    persistSessions(); // fire-and-forget
     return false;
   }
   return true;
@@ -88,13 +185,21 @@ export function isValidSession(token) {
  */
 export function cleanupExpired() {
   const now = Date.now();
+  let sessionsPruned = 0;
+
   for (const [key, entry] of _windows) {
     if (now - entry.windowStart > entry.windowMs) _windows.delete(key);
   }
-  // Expired session tokens
+
   for (const [token, exp] of _sessions) {
-    if (now > exp) _sessions.delete(token);
+    if (now > exp) {
+      _sessions.delete(token);
+      sessionsPruned++;
+    }
   }
+
+  // Only write to disk if we actually removed something
+  if (sessionsPruned > 0) persistSessions();
 }
 
 // ── Rate Limiting (fixed-window counter per IP) ───────────────────────────────
@@ -138,7 +243,7 @@ export function applySecurityHeaders(response) {
   response.setHeader('Referrer-Policy', 'no-referrer');
   response.setHeader(
     'Content-Security-Policy',
-    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://formspree.io"
+    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://formspree.io https://api.github.com https://gist.github.com https://api.gist.github.com"
   );
 }
 
@@ -146,33 +251,42 @@ export function applySecurityHeaders(response) {
 
 const ALLOWED_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
 
+// In team mode, also allow LAN IPs (RFC-1918 private address ranges)
+function isPrivateLanIp(host) {
+  return (
+    /^10\.\d+\.\d+\.\d+$/.test(host) ||
+    /^172\.(1[6-9]|2\d|3[01])\.\d+\.\d+$/.test(host) ||
+    /^192\.168\.\d+\.\d+$/.test(host)
+  );
+}
+
 /**
- * Returns true if the Host header is a safe localhost variant.
- * Rejects arbitrary hostnames to prevent DNS-rebinding attacks.
+ * Returns true if the Host header is allowed.
+ * In solo mode: localhost only (DNS-rebinding protection).
+ * In team mode: also allows LAN (RFC-1918) IP addresses.
  * @param {import('node:http').IncomingMessage} request
  */
 export function isAllowedHost(request) {
   const rawHost = request.headers.host || '';
   const host = rawHost.replace(/:\d+$/, '').toLowerCase();
-  return ALLOWED_HOSTS.has(host);
+  if (ALLOWED_HOSTS.has(host)) return true;
+  // Team mode: allow private LAN IPs so teammates can access the dashboard
+  const teamMode = process.env.REPOTRACKER_TEAM === '1' || process.argv.includes('--team');
+  if (teamMode && isPrivateLanIp(host)) return true;
+  return false;
 }
 
-// ── CSRF / Origin Guard ───────────────────────────────────────────────────────
-
-/**
- * For non-GET/HEAD requests, verify the Origin header (when present) belongs
- * to localhost. Browsers always send Origin on cross-origin state-changing
- * requests, preventing CSRF without a token.
- * @param {import('node:http').IncomingMessage} request
- */
 export function isAllowedOrigin(request) {
   const origin = request.headers.origin;
-  if (!origin) return true; // same-origin curl / non-browser clients / simple navigations
-
+  if (!origin) return true;
+  // Team tokens in Authorization header bypass Origin check (API clients)
+  if (request.headers.authorization?.startsWith('Bearer ')) return true;
   try {
     const { hostname } = new URL(origin);
-    return ALLOWED_HOSTS.has(hostname);
-  } catch {
+    if (ALLOWED_HOSTS.has(hostname)) return true;
+    const teamMode = process.env.REPOTRACKER_TEAM === '1' || process.argv.includes('--team');
+    if (teamMode && isPrivateLanIp(hostname)) return true;
     return false;
-  }
+  } catch { return false; }
 }
+

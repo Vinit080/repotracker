@@ -48,25 +48,60 @@
       </div>
       <nav class="tabs">
         <button class="tab-btn active" data-target="tab-repos">Repositories</button>
-        <button class="tab-btn" data-target="tab-insights">Insights & Timeline</button>
+        <button class="tab-btn" data-target="tab-insights">Insights &amp; Timeline</button>
+        <button class="tab-btn" data-target="tab-ecosystem">Ecosystem</button>
+        <button class="tab-btn" data-target="tab-team">Team ✨</button>
         <button class="tab-btn" data-target="tab-settings">Settings</button>
       </nav>
       <div class="topbar-actions">
-        <button class="ghost hidden" id="logoutBtn" type="button" aria-label="Logout" title="Lock Dashboard"
-          style="padding: 0 12px; color: var(--danger);">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-            <polyline points="16 17 21 12 16 7"></polyline>
-            <line x1="21" y1="12" x2="9" y2="12"></line>
-          </svg>
-        </button>
-        <button class="ghost" id="feedbackBtn" type="button" aria-label="Send Feedback"
-          title="Send Feedback to Creators" style="padding: 0 12px; color: var(--accent);">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-          </svg>
-        </button>
-        <button class="ghost" id="themeToggleBtn" type="button" aria-label="Toggle Theme" style="padding: 0 12px;">
+        <!-- Hamburger dropdown -->
+        <div class="menu-container" style="position:relative;">
+          <button class="ghost icon-button" id="menuToggleBtn" type="button" aria-label="Menu" style="padding:0 10px;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <line x1="3" y1="12" x2="21" y2="12"></line>
+              <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+          </button>
+          <div class="dropdown-menu" id="dropdownMenu">
+            <div class="dropdown-section">
+              <span class="dropdown-label">Subscription</span>
+              <button class="dropdown-item" id="navUpgradeBtn" style="color:var(--accent);">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                Manage Pro Plan
+              </button>
+            </div>
+            <div class="dropdown-section">
+              <span class="dropdown-label">Tools</span>
+              <button class="dropdown-item" id="pomodoroBtn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                Focus Timer
+              </button>
+              <button class="dropdown-item" id="exportDashboardBtn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Export Dashboard
+              </button>
+            </div>
+            <div class="dropdown-section">
+              <span class="dropdown-label">Links</span>
+              <a href="https://github.com/Vinit080/repotracker" target="_blank" rel="noreferrer" class="dropdown-item" id="starGithubBtn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                Star on GitHub
+              </a>
+              <button class="dropdown-item" id="feedbackBtn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                Send Feedback
+              </button>
+            </div>
+            <div class="dropdown-section">
+              <button class="dropdown-item hidden" id="logoutBtn" style="color:var(--danger);">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                Lock Dashboard
+              </button>
+            </div>
+          </div>
+        </div>
+        <button class="ghost icon-button" id="themeToggleBtn" type="button" aria-label="Toggle Theme" style="padding:0 10px;">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="5"></circle>
             <line x1="12" y1="1" x2="12" y2="3"></line>
@@ -146,6 +181,87 @@
         </div>
       </div>
 
+      <!-- ECOSYSTEM TAB -->
+      <div id="tab-ecosystem" class="tab-pane">
+        <div style="max-width:900px;margin:0 auto;padding:24px 0;">
+          <h2 style="margin-bottom:8px;">Ecosystem Overview</h2>
+          <p class="muted" style="margin-bottom:28px;">A bird's-eye view of your development stack across all repos.</p>
+
+          <!-- Language + Health stats -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:28px;">
+            <div id="ecosystemLanguages" class="metrics-grid"></div>
+            <div class="insights-col" style="padding:20px;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);">
+              <h3 style="margin-top:0;font-size:0.9rem;">Repository Health</h3>
+              <div id="ecosystemHealth" class="stack" style="margin-top:12px;"></div>
+            </div>
+          </div>
+
+          <!-- GitHub Repo Browser (Feature 2) -->
+          <div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--bg-card);">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border);background:var(--panel-strong);">
+              <div style="display:flex;align-items:center;gap:10px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text)" stroke-width="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+                <h3 style="margin:0;font-size:0.95rem;">GitHub Repositories</h3>
+                <span id="ghRepoBadge" class="chip" style="font-size:11px;padding:2px 8px;display:none;"></span>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <input id="ghRepoSearch" type="search" placeholder="Filter repos…" style="padding:6px 12px;border:1px solid var(--border);border-radius:6px;background:var(--input-bg);color:var(--text);font-size:12.5px;width:180px;" />
+                <button id="ghRepoRefreshBtn" class="btn-sm" style="padding:6px 12px;font-size:12.5px;">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                  Refresh
+                </button>
+              </div>
+            </div>
+
+            <!-- States -->
+            <div id="ghRepoLoading" style="display:none;padding:40px;text-align:center;">
+              <div class="spinner" style="margin:0 auto 12px;"></div>
+              <p class="muted" style="font-size:13px;">Fetching your GitHub repositories…</p>
+            </div>
+            <div id="ghRepoEmpty" style="display:none;padding:40px;text-align:center;">
+              <p style="font-size:28px;margin-bottom:8px;">🔑</p>
+              <p class="muted" style="font-size:13px;">Add a GitHub PAT in Settings to browse your repositories.</p>
+            </div>
+            <div id="ghRepoError" style="display:none;padding:20px 20px;color:var(--danger);font-size:13px;"></div>
+
+            <!-- Repo list -->
+            <div id="ghRepoList" style="max-height:480px;overflow-y:auto;">
+              <!-- rows injected by JS -->
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- TEAM TAB -->
+      <div id="tab-team" class="tab-pane">
+        <div style="max-width:760px;margin:0 auto;padding:24px 0;">
+          <h2 style="margin-bottom:8px;">Team Mode</h2>
+          <p class="muted" style="margin-bottom:32px;">Share your dashboard with teammates over your local network.</p>
+          <div class="settings-panel" style="padding:32px;">
+            <div style="display:flex;align-items:center;gap:16px;margin-bottom:24px;">
+              <div style="width:48px;height:48px;border-radius:12px;background:color-mix(in srgb,var(--accent) 15%,transparent);display:flex;align-items:center;justify-content:center;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+              </div>
+              <div>
+                <h3 style="margin:0 0 4px;">Start Team Session</h3>
+                <p class="muted" style="margin:0;font-size:0.9rem;">Run <code style="background:var(--panel-strong);padding:2px 6px;border-radius:4px;">npm run team</code> in your terminal to broadcast on LAN.</p>
+              </div>
+            </div>
+            <div id="teamStatusPanel" style="background:var(--panel-strong);border-radius:8px;padding:20px;margin-bottom:20px;">
+              <div style="display:flex;align-items:center;gap:10px;">
+                <div id="teamStatusDot" style="width:10px;height:10px;border-radius:50%;background:var(--muted);"></div>
+                <span id="teamStatusText" class="muted">Not active — start with <strong>npm run team</strong></span>
+              </div>
+            </div>
+            <div id="teamUrlRow" class="hidden" style="display:flex;align-items:center;gap:12px;">
+              <input id="teamShareUrl" type="text" readonly style="flex:1;font-family:monospace;font-size:0.9rem;">
+              <button class="ghost" id="copyTeamShareUrl" type="button">Copy URL</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- SETTINGS TAB -->
       <div id="tab-settings" class="tab-pane">
         <div class="settings-panel" style="max-width: 600px; margin: 0 auto;">
@@ -185,9 +301,8 @@
                 <h3>GitHub Integration</h3>
                 <div class="chip info">Optional</div>
               </div>
-              <p>Unlock <strong>☁️ Cloud Repositories</strong> and advanced <strong>GitHub Stats</strong> (stars,
-                issues, CI status) by providing your Personal Access Token.</p>
-              <input id="patInput" type="password" placeholder="ghp_..." style="margin-top: 12px;">
+              <p>Unlock <strong>☁️ Cloud Repositories</strong> and advanced <strong>GitHub Stats</strong> (stars, issues, CI status) by providing your Personal Access Token. Accepts all token formats: <code style="font-size:0.8rem;background:var(--panel-strong);padding:1px 5px;border-radius:3px;">ghp_</code>, <code style="font-size:0.8rem;background:var(--panel-strong);padding:1px 5px;border-radius:3px;">github_pat_</code>, <code style="font-size:0.8rem;background:var(--panel-strong);padding:1px 5px;border-radius:3px;">gho_</code>.</p>
+              <input id="patInput" type="password" placeholder="ghp_... or github_pat_..." style="margin-top: 12px;">
             </div>
           </div>
 
@@ -254,6 +369,85 @@
   </div>
 
   <!-- MODALS -->
+
+  <!-- PRO/TEAM UPGRADE MODAL -->
+  <dialog id="upgradeModal" style="width:min(540px,calc(100% - 32px));padding:0;border:0;background:transparent;color:var(--text);">
+    <div style="background:var(--panel-bg);border:1px solid var(--border);border-radius:20px;overflow:hidden;box-shadow:0 32px 96px rgba(0,0,0,0.6);">
+
+      <!-- Header -->
+      <div style="padding:36px 36px 24px;background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 12%,transparent),transparent);border-bottom:1px solid var(--border);position:relative;">
+        <form method="dialog" style="position:absolute;top:16px;right:16px;">
+          <button id="upgradeModalClose" type="submit" style="background:var(--panel-strong);border:1px solid var(--border);border-radius:8px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);font-size:16px;line-height:1;">✕</button>
+        </form>
+        <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;">
+          <div style="width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,var(--accent),color-mix(in srgb,var(--accent) 60%,#818cf8));display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;box-shadow:0 8px 24px color-mix(in srgb,var(--accent) 40%,transparent);">
+            <span id="upgradeModalIcon">✨</span>
+          </div>
+          <div>
+            <h2 id="upgradeModalTitle" style="margin:0 0 4px;font-size:1.5rem;font-weight:700;">Upgrade to Pro</h2>
+            <p id="upgradeModalDesc" style="margin:0;font-size:0.88rem;color:var(--muted);line-height:1.4;max-width:340px;">Unlock AI features, cloud sync, and more.</p>
+          </div>
+        </div>
+        <div style="display:inline-flex;align-items:center;gap:8px;background:color-mix(in srgb,var(--accent) 12%,transparent);border:1px solid color-mix(in srgb,var(--accent) 25%,transparent);border-radius:99px;padding:6px 14px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+          <span id="upgradeModalPrice" style="font-size:0.9rem;font-weight:700;color:var(--accent);">$29 one-time</span>
+          <span style="font-size:0.82rem;color:var(--muted);">· no subscription ever</span>
+        </div>
+      </div>
+
+      <!-- Feature list -->
+      <div style="padding:24px 36px;display:grid;gap:10px;">
+        <p style="margin:0 0 4px;font-size:0.78rem;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);">What you unlock</p>
+        <div class="upgrade-feature-row" data-feature="ai_review" style="display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border-radius:10px;background:color-mix(in srgb,var(--accent) 6%,transparent);border:1px solid color-mix(in srgb,var(--accent) 15%,transparent);transition:background 0.15s,border-color 0.15s;">
+          <span style="font-size:1.1rem;margin-top:1px;">🤖</span>
+          <div><strong style="font-size:0.9rem;">AI Code Review + AI Git Sync</strong><p style="margin:2px 0 0;font-size:0.82rem;color:var(--muted);">Analyze diffs for bugs before committing. Generate perfect commit messages.</p></div>
+        </div>
+        <div class="upgrade-feature-row" data-feature="gist_sync" style="display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border-radius:10px;background:color-mix(in srgb,var(--accent) 6%,transparent);border:1px solid color-mix(in srgb,var(--accent) 15%,transparent);transition:background 0.15s,border-color 0.15s;">
+          <span style="font-size:1.1rem;margin-top:1px;">☁️</span>
+          <div><strong style="font-size:0.9rem;">Cloud Config Sync</strong><p style="margin:2px 0 0;font-size:0.82rem;color:var(--muted);">Back up your settings to a private GitHub Gist. Restore on any machine.</p></div>
+        </div>
+        <div class="upgrade-feature-row" data-feature="pomodoro" style="display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border-radius:10px;background:color-mix(in srgb,var(--accent) 6%,transparent);border:1px solid color-mix(in srgb,var(--accent) 15%,transparent);transition:background 0.15s,border-color 0.15s;">
+          <span style="font-size:1.1rem;margin-top:1px;">⏱</span>
+          <div><strong style="font-size:0.9rem;">Deep Work Pomodoro</strong><p style="margin:2px 0 0;font-size:0.82rem;color:var(--muted);">Focus timer with desktop notifications. 4-session cycle with long breaks.</p></div>
+        </div>
+        <div class="upgrade-feature-row" data-feature="team_mode" style="display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border-radius:10px;background:color-mix(in srgb,var(--accent) 6%,transparent);border:1px solid color-mix(in srgb,var(--accent) 15%,transparent);transition:background 0.15s,border-color 0.15s;">
+          <span style="font-size:1.1rem;margin-top:1px;">👥</span>
+          <div><strong style="font-size:0.9rem;">Team Mode <span style="font-size:0.75rem;padding:2px 7px;border-radius:99px;background:color-mix(in srgb,#818cf8 20%,transparent);color:#818cf8;margin-left:4px;">Team $79</span></strong><p style="margin:2px 0 0;font-size:0.82rem;color:var(--muted);">Share your dashboard with teammates on the same network. Up to 5 seats.</p></div>
+        </div>
+      </div>
+
+      <!-- CTA -->
+      <div style="padding:0 36px 28px;">
+        <!-- Already have a key? -->
+        <details style="margin-bottom:16px;">
+          <summary style="font-size:0.82rem;color:var(--muted);cursor:pointer;user-select:none;">Already have a license key? Activate it here</summary>
+          <div style="margin-top:12px;display:flex;gap:8px;">
+            <input id="licenseKeyInput" type="text" placeholder="Paste your license key…" style="flex:1;font-family:monospace;letter-spacing:0.04em;font-size:0.9rem;padding:10px 12px;">
+            <button class="primary" id="activateLicenseBtn" type="button" style="padding:10px 18px;white-space:nowrap;">Activate</button>
+          </div>
+        </details>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <a id="upgradeModalBtn" href="https://repotracker.lemonsqueezy.com/buy/pro" target="_blank" rel="noreferrer"
+            style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:14px;border-radius:10px;background:var(--accent);color:#fff;font-weight:700;font-size:0.95rem;text-decoration:none;transition:opacity 0.15s;box-shadow:0 4px 16px color-mix(in srgb,var(--accent) 40%,transparent);"
+            onmouseover="this.style.opacity='0.88'" onmouseout="this.style.opacity='1'">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
+            Get <span id="upgradeModalTier">Pro</span> — <span id="upgradeModalPriceCta">$29</span>
+          </a>
+          <div style="font-size:0.78rem;color:var(--muted);text-align:center;line-height:1.4;">
+            <div>✓ One-time payment</div>
+            <div>✓ Instant license key</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Social proof -->
+      <div style="padding:12px 36px;border-top:1px solid var(--border);background:var(--panel-strong);display:flex;align-items:center;gap:8px;">
+        <div style="display:flex;gap:1px;font-size:11px;color:#f59e0b;">★★★★★</div>
+        <p style="margin:0;font-size:0.78rem;color:var(--muted);">Used by developers who take their Git hygiene seriously. <a href="https://github.com/Vinit080/repotracker" target="_blank" rel="noreferrer" style="color:var(--accent);text-decoration:none;">★ Star us on GitHub</a></p>
+      </div>
+    </div>
+  </dialog>
+
   <dialog id="authDialog"
     style="background: var(--bg); color: var(--text); padding: 40px; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 20px 40px rgba(0,0,0,0.5); width: 400px; max-width: 90vw;">
     <div style="text-align: center;">
@@ -405,38 +599,96 @@
           <h2 class="wizard-heading">Connect GitHub</h2>
           <p class="wizard-sub">Optional — unlocks PR status, Actions CI, cloud repos, and cloning.</p>
 
-          <div class="wizard-gh-steps">
-            <div class="wizard-gh-step">
-              <div class="wizard-gh-step-num">1</div>
-              <div class="wizard-gh-step-body">
-                <a href="https://github.com/settings/tokens/new?scopes=repo,read:user&description=RepoTracker" target="_blank" rel="noreferrer">Open GitHub token page ↗</a>
-                — sign in if prompted, then click <strong>Generate token</strong>.
+          <!-- Token type switcher -->
+          <div class="wiz-token-tabs" id="wizTokenTabs">
+            <button class="wiz-token-tab active" data-tab="classic" type="button">
+              Classic PAT <code style="font-size:0.75rem;opacity:0.7;">ghp_</code>
+            </button>
+            <button class="wiz-token-tab" data-tab="finegrained" type="button">
+              Fine-grained PAT <code style="font-size:0.75rem;opacity:0.7;">github_pat_</code>
+            </button>
+          </div>
+
+          <!-- Classic PAT steps -->
+          <div class="wiz-token-panel" id="wizPanelClassic">
+            <div class="wizard-gh-steps">
+              <div class="wizard-gh-step">
+                <div class="wizard-gh-step-num">1</div>
+                <div class="wizard-gh-step-body">
+                  <a href="https://github.com/settings/tokens/new?scopes=repo,read:user&description=RepoTracker" target="_blank" rel="noreferrer">Open GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic) ↗</a>
+                  <br><span style="font-size:0.8rem;">Click <strong>Generate new token (classic)</strong>.</span>
+                </div>
               </div>
-            </div>
-            <div class="wizard-gh-step">
-              <div class="wizard-gh-step-num">2</div>
-              <div class="wizard-gh-step-body">
-                Select these permissions:
-                <div class="wizard-perms">
-                  <div class="wizard-perm-item"><span>✅</span> Actions (read)</div>
-                  <div class="wizard-perm-item"><span>✅</span> Contents (read)</div>
-                  <div class="wizard-perm-item"><span>✅</span> Issues (read)</div>
-                  <div class="wizard-perm-item"><span>✅</span> Pull Requests (read)</div>
-                  <div class="wizard-perm-item"><span>✅</span> Commit statuses (read)</div>
+              <div class="wizard-gh-step">
+                <div class="wizard-gh-step-num">2</div>
+                <div class="wizard-gh-step-body">
+                  Give it a name (e.g. <em>RepoTracker</em>) and set expiration, then check these scopes:
+                  <div class="wizard-perms" style="margin-top:10px;">
+                    <div class="wizard-perm-item"><span>✅</span> <strong>repo</strong> — Full repo access (includes private)</div>
+                    <div class="wizard-perm-item"><span>✅</span> <strong>read:user</strong> — Read user profile</div>
+                    <div class="wizard-perm-item"><span>✅</span> <strong>workflow</strong> — Read Actions CI status</div>
+                  </div>
+                </div>
+              </div>
+              <div class="wizard-gh-step">
+                <div class="wizard-gh-step-num">3</div>
+                <div class="wizard-gh-step-body">
+                  Click <strong>Generate token</strong>, copy the <code>ghp_...</code> value (shown only once), then paste and verify below.
                 </div>
               </div>
             </div>
-            <div class="wizard-gh-step">
-              <div class="wizard-gh-step-num">3</div>
-              <div class="wizard-gh-step-body">
-                Paste your token here and verify it:
-                <div class="wizard-verify-row">
-                  <input type="password" id="wizGhToken" placeholder="ghp_..." autocomplete="off">
-                  <button class="wizard-verify-btn" id="wizVerifyBtn" type="button">Verify</button>
+          </div>
+
+          <!-- Fine-grained PAT steps -->
+          <div class="wiz-token-panel hidden" id="wizPanelFinegrained">
+            <div class="wizard-gh-steps">
+              <div class="wizard-gh-step">
+                <div class="wizard-gh-step-num">1</div>
+                <div class="wizard-gh-step-body">
+                  <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noreferrer">Open GitHub → Settings → Developer settings → Personal access tokens → Fine-grained tokens ↗</a>
+                  <br><span style="font-size:0.8rem;">Click <strong>Generate new token</strong>.</span>
                 </div>
-                <div class="wizard-token-status" id="wizTokenStatus"></div>
+              </div>
+              <div class="wizard-gh-step">
+                <div class="wizard-gh-step-num">2</div>
+                <div class="wizard-gh-step-body">
+                  Set <strong>Resource owner</strong> to your account and <strong>Repository access</strong> to <em>All repositories</em> (or select specific ones).
+                </div>
+              </div>
+              <div class="wizard-gh-step">
+                <div class="wizard-gh-step-num">3</div>
+                <div class="wizard-gh-step-body">
+                  Under <strong>Permissions → Repository permissions</strong>, grant:
+                  <div class="wizard-perms" style="margin-top:10px;">
+                    <div class="wizard-perm-item"><span>✅</span> <strong>Actions</strong> — Read-only</div>
+                    <div class="wizard-perm-item"><span>✅</span> <strong>Contents</strong> — Read-only</div>
+                    <div class="wizard-perm-item"><span>✅</span> <strong>Issues</strong> — Read-only</div>
+                    <div class="wizard-perm-item"><span>✅</span> <strong>Pull requests</strong> — Read-only</div>
+                    <div class="wizard-perm-item"><span>✅</span> <strong>Commit statuses</strong> — Read-only</div>
+                    <div class="wizard-perm-item"><span>✅</span> <strong>Metadata</strong> — Read-only (mandatory)</div>
+                  </div>
+                  <div style="margin-top:10px;">Under <strong>Account permissions</strong>:</div>
+                  <div class="wizard-perms" style="margin-top:6px;">
+                    <div class="wizard-perm-item"><span>✅</span> <strong>Profile</strong> — Read-only</div>
+                  </div>
+                </div>
+              </div>
+              <div class="wizard-gh-step">
+                <div class="wizard-gh-step-num">4</div>
+                <div class="wizard-gh-step-body">
+                  Click <strong>Generate token</strong>, copy the <code>github_pat_...</code> value (shown only once), then paste and verify below.
+                </div>
               </div>
             </div>
+          </div>
+
+          <!-- Shared verify row -->
+          <div style="margin-top:20px;">
+            <div class="wizard-verify-row">
+              <input type="password" id="wizGhToken" placeholder="ghp_... or github_pat_..." autocomplete="off">
+              <button class="wizard-verify-btn" id="wizVerifyBtn" type="button">Verify</button>
+            </div>
+            <div class="wizard-token-status" id="wizTokenStatus"></div>
           </div>
 
           <div class="wizard-actions">
@@ -448,6 +700,7 @@
             <button class="wizard-skip-btn" id="wizStep3Skip" type="button">Skip — I'll do this later</button>
           </div>
         </div>
+
 
         <!-- ── STEP 4: Optional APIs ─────────────────────────────────── -->
         <div class="wizard-step" id="wizardStep4">
@@ -523,7 +776,7 @@
           <div class="dropdown-menu"></div>
         </details>
         <button class="ghost setup-button" type="button"
-          title="Pull latest code and automatically install dependencies">Pull & Setup</button>
+          title="Pull latest code and automatically install dependencies">Pull &amp; Setup</button>
         <button class="ghost audit-button" type="button" title="Dependency Audit">Audit</button>
         <button class="ghost aisync-button hidden" type="button" title="Auto-commit and push with AI">AI Sync
           🪄</button>

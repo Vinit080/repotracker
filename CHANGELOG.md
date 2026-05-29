@@ -9,60 +9,159 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-> Features and fixes merged to `main` but not yet tagged as a release.
+> Features merged to `main` but not yet tagged as a release.
 
 ### Planned
+- Custom workflow pipelines (Setup → Test → Build → Commit in one click)
+- Compiled binary distribution (`.exe` for Windows, `.dmg` for macOS, Linux AppImage)
+- Global dependency graph — force-directed cross-repo visualization
 - Multi-tabbed Shelby Terminal
-- AI Code Reviewer (pre-commit diff analysis via Gemini)
-- Visual Git Branch Manager
-- Secret Scanner (pre-commit credential detection)
+- Tauri/Electron native desktop packaging (v1.0.0)
+
+---
+
+## [0.2.0] - 2026-05-29
+
+Major feature release. Production-ready with a full security audit pass.
+
+### Added
+
+#### AI Features *(Pro)*
+- **AI Code Reviewer** — analyze uncommitted diffs for bugs, security issues, and quality problems before committing, powered by Gemini 1.5 Pro
+- **AI Weekly Standup** — AI-generated standup report summarizing your last 7 days of commits across all repos
+- **AI Git Sync** enhanced — improved diff summarization and commit message quality
+
+#### GitHub Repository Browser *(Ecosystem Tab)*
+- Browse all GitHub repositories (public + private) directly inside the app
+- Visual `✓ Cloned` badge on repos already present locally
+- One-click Clone button opens the clone dialog pre-filled with the repo URL
+- Live search filter across all repos by name or description
+- Shows language, star count, and fork status per repo
+
+#### Gist Config Sync *(Pro)*
+- `POST /api/config/sync-to-gist` — serialize settings (roots, depth, username) to a private GitHub Gist; secrets are never included
+- `POST /api/config/restore-from-gist` — fetch and merge settings from any Gist ID onto a new machine
+- Gist ID persisted in config; subsequent syncs update the same Gist rather than creating new ones
+
+#### Smart Desktop Notifications
+- Automatic alerts fired after every repo scan:
+  - ❌ CI just failed (status changed to `failure` since last check)
+  - ⚠️ Repo is 5+ commits behind remote
+  - 🟡 Repo has 20+ uncommitted files
+  - 💤 Repo is stale (no commits in 30+ days)
+- Per-repo 1-hour cooldown prevents notification spam (state stored in `data/meta.json`)
+- Works on Windows (PowerShell toast), macOS (AppleScript), Linux (`notify-send`)
+
+#### Visual Branch Manager
+- Create, checkout, merge, and delete branches directly from the repo card UI
+- Branch name validated against `/^[a-zA-Z0-9._\-/]{1,100}$/` before any git operation
+- Repo card branch chip updates immediately after checkout
+
+#### LemonSqueezy Licensing (Option A — Validate Once, Store Locally)
+- `POST /api/license` — activates a license key via LS `/v1/licenses/activate`, consuming one activation slot
+- `DELETE /api/license` — deactivates via LS `/v1/licenses/deactivate`, freeing the slot for use on another machine
+- `GET /api/license` — read-only status check via LS `/v1/licenses/validate` (no slot consumed)
+- Activation stores `licenseTier`, `licenseInstanceId`, `licenseActivatedAt` in `data/config.json`
+- Offline fallback for `RT-PRO-XXXX` / `RT-TEAM-XXXX` format keys (dev/testing only)
+- Full feature gate on AI routes, Gist sync, and Team Mode
+
+#### Team Mode *(Team tier)*
+- LAN dashboard sharing — bind to `0.0.0.0` with `npm run team` or `REPOTRACKER_TEAM=1`
+- `GET /api/team/status` — returns team mode state, LAN URL, and active token count
+- `POST /api/team/token` / `DELETE /api/team/token` — generate and revoke invite tokens
+- Team tab shows live session status, shareable URL, and token management UI
+
+#### Upgrade Modal (Context-Aware Paywall)
+- Opens automatically when a free user attempts a Pro/Team feature
+- Title, description, icon, price, and highlighted feature row update dynamically per feature
+- Built-in license key input (collapsed `<details>`) — users can activate without leaving the modal
+- Direct buy link routes to Pro or Team checkout based on the feature attempted
+
+#### Activity Log
+- `GET /api/activity` — returns recent events and aggregated weekly stats
+- Tracks: repo scans, AI syncs, AI reviews, branch operations, terminal sessions, searches, Gist operations
+- Relative timestamps correctly computed from millisecond epoch values
+
+#### Environment Configuration
+- `.env` file loaded automatically at startup using native Node.js (no `dotenv` dependency)
+- All sensitive config now env-based: `LEMONSQUEEZY_API_KEY`, `PING_URL`, `PORT`, `REPOTRACKER_TEAM`
+- `.env.example` committed as a safe template with all supported variables documented
+
+### Fixed
+
+#### Critical
+- **API response shape mismatch** — `GET /api/repos` returns a plain array; frontend was reading `data.repos` (undefined), crashing the entire dashboard render with `Cannot read properties of undefined (reading 'length')`
+- **`repo.status` undefined crash** — cloud/remote-only repos have no `status` object; 8 render functions (`renderMetrics`, `renderInsights`, `renderSpotlight`, `renderRepoCard`, `matchesFilter`) all crashed on `repo.status.dirtyCount`. Fixed with `?.` optional chaining and an explicit `!repo.status` guard in `matchesFilter`
+- **`PUT /api/config` data loss bug** — saving Settings wiped `licenseTier`, `licenseInstanceId`, `licenseActivatedAt`, `licenseKey`, `teamTokens`, `pingOptIn`, `gistSyncId`. All fields now explicitly carried forward
+- **`scanRepos()` not iterable** — `GET /api/repos` crashed with `TypeError: repos is not iterable` when `scanRepos()` returned a non-array. Fixed with `Array.isArray(rawRepos) ? rawRepos : []`
+- **License activation using wrong LS endpoint** — previous code called `/v1/licenses/validate` (read-only check) for activation. Now correctly calls `/v1/licenses/activate` (consumes a slot) and `/v1/licenses/deactivate` (frees the slot)
+- **11 missing API routes** — frontend called routes that returned 404: `team/status`, `team/token`, `activity`, `repos/ai-review`, `repos/branch`, `ping-optin`, `license` (POST/DELETE), `config/sync-to-gist`, `config/restore-from-gist`. All now implemented
+
+#### Security
+- **Shell injection** — `execAsync('npm install')` in auto-update replaced with `execFileAsync(npmCmd, ['install'])` — no shell string interpolation
+- **WakaTime indefinite hang** — `AbortSignal.timeout(8000)` added to WakaTime fetch; returns a graceful timeout error instead of hanging
+
+#### High
+- **AI button always visible on free accounts** — `state.config.aiApiKey` after sanitization returns `'••• (saved)'` (always truthy). Button now checks `licenseKeySet` boolean instead of the masked string
+- **License key exposure** — `sanitizeConfigForResponse()` now masks the license key and exposes only `licenseKeySet: Boolean`, `licenseTier`, `licenseInstanceId`, `licenseActivatedAt` — the raw key never reaches the browser
+- **`updateLicenseUI()` guessing tier from masked key** — was checking if key starts with `RT-TEAM`. Now reads `licenseTier` from config (set by server during activation)
+- **`revokeLicenseBtn` missing loading state** — button now shows `'Deactivating…'` and is disabled during the API call
+- **Activity log timestamps showing year 2054** — `Math.floor(entry.ts / 1000)` was dividing milliseconds to seconds before passing to `relativeTime()` (which expects milliseconds). Division removed
+
+#### Terminal
+- **Shelby Terminal hardcoded to `bash` on Mac/Linux** — now reads `process.env.SHELL` so zsh, fish, and other shells work natively on macOS and Linux. Falls back to `bash` if `$SHELL` is unset
+
+#### Pomodoro
+- **Tab title not restored on dialog close** — closing the Pomodoro dialog while a session was paused left `document.title` set to `'25:00 — FOCUS | RepoTracker'`. Dialog `close` event now always clears the interval, resets `_pomoRunning`, and restores the original title
+
+### Changed
+- `src/license.js` — full redesign: `activate()` / `deactivate()` / `validate()` async functions using correct LS API endpoints
+- `src/utils.js` — `normalizeConfig()` now preserves `licenseTier`, `licenseInstanceId`, `licenseActivatedAt`; `sanitizeConfigForResponse()` exposes these three fields (safe to send to browser)
+- `src/constants.js` — `DEFAULT_CONFIG` updated with `licenseTier`, `licenseInstanceId`, `licenseActivatedAt` fields
+- Upgrade modal rebuilt: dynamic title/desc/icon/price/feature row highlighting per feature; includes built-in license key input
+- Ecosystem tab expanded from 2 panels to 3 (languages, health metrics, GitHub browser)
 
 ---
 
 ## [0.1.0] - 2026-05-26
 
-Initial public release of RepoTracker.
+Initial public release.
 
 ### Added
 
 #### Core Dashboard
 - Automatic recursive Git repository discovery from user-defined root folders
-- Repository health scoring based on uncommitted changes, unpushed commits, branch staleness, and remote divergence
-- Smart desktop notifications when repos fall behind their upstream remote
-- 1-click auto-updater that polls GitHub for new releases and pulls + reinstalls automatically
+- Repository health scoring (0–100) based on uncommitted changes, unpushed commits, staleness, and remote divergence
+- Setup wizard for first-run onboarding (root folders, app password, API keys)
+- Native OS folder browser dialog (zero manual path typing)
 
 #### AI Git Sync
 - Gemini AI-powered commit message generation from uncommitted diffs
-- One-click stage, commit, and push workflow from the dashboard
+- One-click stage → commit → push workflow with live terminal feedback
 
 #### Shelby Terminal
 - Fully interactive embedded terminal powered by `xterm.js` and `node-pty`
-- Real-time bidirectional I/O streamed over WebSocket
-- Slide-up panel UX integrated directly into the dashboard
+- Real-time bidirectional I/O over WebSocket
+- Slide-up panel UX integrated into the dashboard
 
 #### Repository Tools
-- Native OS folder browser dialog (zero manual path typing)
-- Global `git grep` search across all local repositories simultaneously
-- Floating TODO / FIXME scanner across all repos
-- Language-agnostic Quick Actions: auto-parses `package.json`, `Makefile`, `Taskfile.yml`, and `scripts/` for 1-click task execution (Node.js, Python, Go, C++, and more)
-
-#### Insights
-- WakaTime integration showing per-repository coding time over the last 7 days
-
-#### Feedback
-- Embedded native feedback panel (powered by Formspree) for feature requests
+- Global `git grep` search across all repos simultaneously
+- Floating TODO/FIXME scanner
+- Language-agnostic Quick Actions — auto-parses `package.json`, `Makefile`, `Taskfile.yml`, `scripts/`
+- WakaTime integration for per-repo coding time over the last 7 days
+- Embedded feedback panel
 
 #### Security
-- PBKDF2-SHA512 password hashing with random salt
+- PBKDF2-SHA512 password hashing (100,000 iterations, random salt)
 - Cryptographically random, time-limited session tokens
 - Strict `localhost`-only access with `Host` and `Origin` header validation
-- Anti-DNS rebinding and CSRF/CSWSH protection
-- All API credentials stored server-side only — never exposed to frontend
+- DNS-rebinding and CSRF/CSWSH protection
+- All API credentials stored server-side only
 
 ### Technical Stack
-- **Backend**: Vanilla Node.js (ES Modules), `node-pty`, `ws`, `node-notifier`
-- **Frontend**: Vanilla JavaScript (ES6+), `xterm.js`, custom Glassmorphic CSS design system
-- **Integrations**: GitHub API, WakaTime API, Google Gemini Pro
+- **Backend**: Vanilla Node.js (ES Modules), `node-pty`, `ws`
+- **Frontend**: Vanilla JavaScript (ES6+), `xterm.js`, custom CSS design system
+- **Integrations**: GitHub API, WakaTime API, Google Gemini Pro, LemonSqueezy
 
 ---
 
@@ -70,11 +169,12 @@ Initial public release of RepoTracker.
 
 | Bump | When to use |
 |---|---|
-| Patch `0.1.x` | Bug fixes, security patches, minor UI tweaks |
+| Patch `0.2.x` | Bug fixes, security patches, minor UI tweaks |
 | Minor `0.x.0` | New features, non-breaking additions |
-| Major `x.0.0` | Breaking changes, architecture overhauls (e.g. Tauri migration) |
+| Major `x.0.0` | Breaking changes, architecture overhauls |
 
 ---
 
-[Unreleased]: https://github.com/Vinit080/repotracker/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/Vinit080/repotracker/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/Vinit080/repotracker/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Vinit080/repotracker/releases/tag/v0.1.0

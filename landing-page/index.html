@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RepoTracker | Local-First Git Mission Control</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #09090b;
+            --bg-card: #18181b;
+            --text: #f4f4f5;
+            --muted: #a1a1aa;
+            --accent: #6366f1;
+            --accent-hover: #4f46e5;
+            --border: #27272a;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        /* Header */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 24px 0;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 800;
+            letter-spacing: -0.05em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .logo svg {
+            color: var(--accent);
+        }
+
+        .nav-links a {
+            color: var(--text);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.95rem;
+            margin-left: 32px;
+            transition: color 0.2s;
+        }
+
+        .nav-links a:hover {
+            color: var(--accent);
+        }
+
+        /* Hero */
+        .hero {
+            padding: 100px 0 80px;
+            text-align: center;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .hero h1 {
+            font-size: 3.5rem;
+            font-weight: 800;
+            line-height: 1.1;
+            letter-spacing: -0.03em;
+            margin-bottom: 24px;
+        }
+
+        .hero h1 span {
+            color: var(--accent);
+        }
+
+        .hero p {
+            font-size: 1.25rem;
+            color: var(--muted);
+            margin-bottom: 40px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 14px 28px;
+            border-radius: 8px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.2s;
+            cursor: pointer;
+            border: none;
+            font-size: 1rem;
+        }
+
+        .btn-primary {
+            background-color: var(--accent);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--accent-hover);
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background-color: transparent;
+            color: var(--text);
+            border: 1px solid var(--border);
+            margin-left: 16px;
+        }
+
+        .btn-secondary:hover {
+            background-color: var(--bg-card);
+        }
+
+        /* Features */
+        .features {
+            padding: 80px 0;
+        }
+
+        .section-title {
+            text-align: center;
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 48px;
+            letter-spacing: -0.02em;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+        }
+
+        .card {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 32px;
+        }
+
+        .card-icon {
+            font-size: 2rem;
+            margin-bottom: 16px;
+        }
+
+        .card h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .card p {
+            color: var(--muted);
+            font-size: 0.95rem;
+        }
+
+        /* Pricing */
+        .pricing {
+            padding: 80px 0 120px;
+        }
+
+        .pricing-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+            align-items: center;
+        }
+
+        .price-card {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 40px 32px;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .price-card.pro {
+            border-color: var(--accent);
+            position: relative;
+            box-shadow: 0 0 40px rgba(99, 102, 241, 0.1);
+        }
+
+        .pro-badge {
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: var(--accent);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+
+        .price-card h3 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .price {
+            font-size: 3rem;
+            font-weight: 800;
+            margin-bottom: 8px;
+        }
+
+        .price span {
+            font-size: 1rem;
+            color: var(--muted);
+            font-weight: 500;
+        }
+
+        .price-desc {
+            color: var(--muted);
+            font-size: 0.9rem;
+            margin-bottom: 32px;
+        }
+
+        .features-list {
+            list-style: none;
+            margin-bottom: 40px;
+            flex-grow: 1;
+        }
+
+        .features-list li {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 16px;
+            font-size: 0.95rem;
+            color: var(--text);
+        }
+
+        .features-list li svg {
+            color: var(--accent);
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .price-card .btn {
+            width: 100%;
+        }
+
+        /* Footer */
+        footer {
+            border-top: 1px solid var(--border);
+            padding: 40px 0;
+            text-align: center;
+            color: var(--muted);
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 768px) {
+            .hero h1 { font-size: 2.5rem; }
+            .nav-links { display: none; }
+            .btn-secondary { margin-left: 0; margin-top: 16px; display: block; }
+        }
+    </style>
+</head>
+<body>
+
+    <header class="container">
+        <div class="logo">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17l6-6-6-6"/><path d="M12 19h8"/></svg>
+            RepoTracker
+        </div>
+        <nav class="nav-links">
+            <a href="#features">Features</a>
+            <a href="#pricing">Pricing</a>
+            <a href="https://github.com/Vinit080/repotracker" target="_blank">GitHub</a>
+        </nav>
+    </header>
+
+    <section class="hero container">
+        <h1>Your intelligent, local-first <br><span>Git mission control.</span></h1>
+        <p>Automatically discover, monitor, and manage every Git repository on your machine from a single, stunning dashboard. No cloud. No tracking. Your code stays yours.</p>
+        <div>
+            <a href="https://github.com/Vinit080/repotracker" class="btn btn-primary">Download Free</a>
+            <a href="#pricing" class="btn btn-secondary">View Pricing</a>
+        </div>
+    </section>
+
+    <section id="features" class="features container">
+        <h2 class="section-title">Everything you need to ship faster.</h2>
+        <div class="grid">
+            <div class="card">
+                <div class="card-icon">📡</div>
+                <h3>Auto Discovery</h3>
+                <p>Point RepoTracker at your root folders and it recursively maps every Git repo instantly. Stop managing bookmarks.</p>
+            </div>
+            <div class="card">
+                <div class="card-icon">🤖</div>
+                <h3>AI Code Review & Sync</h3>
+                <p>Generate perfect commit messages via Gemini AI. Analyze uncommitted diffs for bugs before you push.</p>
+            </div>
+            <div class="card">
+                <div class="card-icon">💻</div>
+                <h3>Shelby Terminal</h3>
+                <p>Fully interactive embedded terminal powered by xterm.js. Run commands without ever leaving the dashboard.</p>
+            </div>
+            <div class="card">
+                <div class="card-icon">❤️</div>
+                <h3>Health Scoring</h3>
+                <p>Repos are scored 0-100 based on uncommitted changes, unpushed commits, staleness, and CI status.</p>
+            </div>
+            <div class="card">
+                <div class="card-icon">⏱️</div>
+                <h3>Deep Work Pomodoro</h3>
+                <p>Built-in focus timer with desktop notifications. 4-session cycle with long breaks to keep you productive.</p>
+            </div>
+            <div class="card">
+                <div class="card-icon">☁️</div>
+                <h3>Cloud Config Sync</h3>
+                <p>Sync your roots, settings, and tags to a private GitHub Gist. Restore your perfect setup on any machine.</p>
+            </div>
+        </div>
+    </section>
+
+    <section id="pricing" class="pricing container">
+        <h2 class="section-title">Simple, transparent pricing.</h2>
+        <div class="pricing-grid">
+            
+            <!-- Free Tier -->
+            <div class="price-card">
+                <h3>Core / Open Source</h3>
+                <div class="price">$0<span> / forever</span></div>
+                <p class="price-desc">Perfect for individual developers.</p>
+                <ul class="features-list">
+                    <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> Unlimited local repositories</li>
+                    <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> Repo Auto-Discovery</li>
+                    <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> Health Scoring & Global Search</li>
+                    <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> Shelby Embedded Terminal</li>
+                    <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> Visual Branch Manager</li>
+                </ul>
+                <a href="https://github.com/Vinit080/repotracker" class="btn btn-secondary" style="margin-left:0;">Download from GitHub</a>
+            </div>
+
+            <!-- Pro Tier -->
+            <div class="price-card pro">
+                <div class="pro-badge">Most Popular</div>
+                <h3>Pro</h3>
+                <div class="price">$29<span> / one-time</span></div>
+                <p class="price-desc">Supercharge your workflow with AI.</p>
+                <ul class="features-list">
+                    <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> <strong>Everything in Core</strong></li>
+                    <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> AI Code Reviewer</li>
+                    <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> AI Git Sync & Commit Messages</li>
+                    <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> AI Weekly Standup Reports</li>
+                    <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> GitHub Gist Config Sync</li>
+                    <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> WakaTime Integration</li>
+                </ul>
+                <!-- Note: The href will be updated to the actual LemonSqueezy checkout URL once generated -->
+                <a href="#" class="btn btn-primary">Get Pro License</a>
+            </div>
+
+            <!-- Team Tier -->
+            <div class="price-card">
+                <h3>Team</h3>
+                <div class="price">$79<span> / one-time</span></div>
+                <p class="price-desc">Share across your local network.</p>
+                <ul class="features-list">
+                    <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> <strong>Everything in Pro</strong></li>
+                    <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> 5-Seat Team License</li>
+                    <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> LAN Dashboard Broadcasting</li>
+                    <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> Generate Invite Tokens</li>
+                    <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> Team-wide Standup Visibility</li>
+                </ul>
+                <!-- Note: The href will be updated to the actual LemonSqueezy checkout URL once generated -->
+                <a href="#" class="btn btn-secondary" style="margin-left:0;">Get Team License</a>
+            </div>
+
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2026 RepoTracker. Built for developers who care about their Git hygiene.</p>
+        </div>
+    </footer>
+
+</body>
+</html>

@@ -1,103 +1,250 @@
 <div align="center">
-  <h1>🚀 RepoTracker</h1>
-  <p><strong>Your ultimate, intelligent local Git repository manager.</strong></p>
-  <p>RepoTracker automatically discovers, monitors, and manages all your local Git repositories from a beautiful, lightning-fast dashboard. With AI-powered commit messages and WakaTime insights, staying on top of your code has never been easier.</p>
+
+<img src="https://img.shields.io/badge/RepoTracker-v0.2.0-6366f1?style=for-the-badge&logoColor=white" alt="RepoTracker v0.2.0">
+
+**Your intelligent, local-first Git mission control.**
+
+RepoTracker automatically discovers, monitors, and manages every Git repository on your machine — from a single, stunning `localhost` dashboard. No cloud. No subscription. No tracking. Your code stays on your computer.
+
+<p>
+  <a href="https://github.com/Vinit080/repotracker/releases"><img src="https://img.shields.io/badge/version-0.2.0-blueviolet?style=flat-square" alt="Version"></a>
+  <a href="https://github.com/Vinit080/repotracker/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-source--available-orange?style=flat-square" alt="License"></a>
+  <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/node-%3E%3D20-brightgreen?style=flat-square&logo=node.js" alt="Node.js"></a>
+  <a href="https://github.com/Vinit080/repotracker/stargazers"><img src="https://img.shields.io/github/stars/Vinit080/repotracker?style=flat-square&color=gold" alt="GitHub Stars"></a>
+  <a href="./SECURITY.md"><img src="https://img.shields.io/badge/security-audited-blue?style=flat-square" alt="Security Audited"></a>
+  <img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Flucky-dream-377a.coolboychakane08.workers.dev%2Fstats&query=total&label=installs&color=6366f1&style=flat-square" alt="Install Count">
+</p>
+<p>
+  <img src="https://img.shields.io/badge/Windows-0078D4?style=flat-square&logo=windows&logoColor=white" alt="Windows">
+  <img src="https://img.shields.io/badge/macOS-000000?style=flat-square&logo=apple&logoColor=white" alt="macOS">
+  <img src="https://img.shields.io/badge/Linux-FCC624?style=flat-square&logo=linux&logoColor=black" alt="Linux">
+</p>
+
 </div>
 
 ---
 
 ## ✨ Features
 
-- **📡 Automatic Discovery**: Point RepoTracker at your root folders and it instantly maps every Git repository recursively.
-- **🪄 Setup Wizard**: A beautiful, guided onboarding experience that seamlessly walks you through adding folders, creating passwords, and configuring API keys on your very first launch.
-- **📂 Native Folder Browser**: Ditch the manual typing. Use the built-in OS dialog to seamlessly point RepoTracker at your code directories with zero typos.
-- **❤️ Health Scoring**: Repositories are automatically scored based on uncommitted changes, unpushed commits, staleness, and branch health.
-- **🤖 AI Git Sync**: Generate perfectly summarized commit messages instantly via Gemini AI and push changes with a single click.
-- **📊 WakaTime Integration**: See exactly how much time you've spent coding in each repository over the last 7 days.
-- **🔍 Global Search**: Fast `git grep` across all your local repositories at once, and easily find floating `TODO`s or `FIXME`s.
-- **📟 Shelby Terminal**: A fully integrated, interactive slide-up terminal inside the dashboard powered by `xterm.js` and `node-pty`. Streams standard input/output over WebSockets for a true, real-time developer terminal experience directly in your browser.
-- **⚡ Language-Agnostic Task Runner**: Automatically parses `package.json`, `Makefile`, `Taskfile.yml`, and `scripts/` directories to expose 1-click Quick Actions across Node.js, Python, C++, Go, and more.
-- **💡 Direct Line Feedback**: Embedded, native feedback panel for users to send feature requests directly to the creators, powered silently by Formspree.
-- **🔄 1-Click Auto-Updater**: RepoTracker securely polls GitHub and drops a beautiful banner when new features are released. Click "Update Now" and it automatically pulls the latest code and installs dependencies.
-- **🛡️ Secure by Design**: Runs locally with enterprise-grade security. PBKDF2 hashed passwords, strict session tokens, and zero API credential leakage to the browser.
-- **🔔 Smart Alerts**: A background worker continuously monitors your repos and sends desktop notifications if your code falls behind the remote upstream.
+### 🗂️ Repository Management
+| Feature | Description |
+|---|---|
+| **📡 Auto Discovery** | Points at root folders and recursively maps every Git repo instantly |
+| **❤️ Health Scoring** | Repos scored 0–100 on dirty files, unpushed commits, staleness, and CI status |
+| **🌿 Branch Manager** | Create, checkout, merge, and delete branches from the UI — no terminal needed |
+| **🔎 Global Search** | Fast `git grep` across all repos at once. Find every `TODO` in seconds |
+| **🔔 Smart Alerts** | Desktop notifications when repos fall 5+ commits behind, have 20+ dirty files, or go stale |
+| **🌐 GitHub Browser** | Browse all your GitHub repos (public + private) in the Ecosystem tab and clone with one click |
 
-## 🚀 Getting Started
+### 🤖 AI Features *(Pro)*
+| Feature | Description |
+|---|---|
+| **🪄 AI Git Sync** | Generate perfect commit messages via Gemini AI and push with one click |
+| **🔍 AI Code Review** | Analyze uncommitted diffs for bugs, security issues, and quality problems *before* committing |
+| **📋 Weekly Standup** | AI-generated standup report from your last 7 days of commits |
 
-RepoTracker is designed to be completely zero-configuration to start.
+### ☁️ Sync & Config *(Pro)*
+| Feature | Description |
+|---|---|
+| **☁️ Gist Config Sync** | Sync your roots, settings, and tags to a private GitHub Gist. Restore on any machine in seconds |
+| **📊 WakaTime** | See exactly how much time you spent coding per repo over the last 7 days |
 
-### Prerequisites
-- [Node.js](https://nodejs.org/) (v20 or higher)
-- [Git](https://git-scm.com/) installed and available in your PATH
+### 🛠️ Tooling
+| Feature | Description |
+|---|---|
+| **💻 Shelby Terminal** | Fully interactive embedded terminal powered by `xterm.js` and `node-pty` |
+| **⏱ Pomodoro Timer** | Deep-work focus timer with desktop notifications — 4-session cycle with long breaks |
+| **⚡ Task Runner** | Auto-parses `package.json`, `Makefile`, `Taskfile.yml`, `Dockerfile` for 1-click Quick Actions |
+| **📋 Activity Log** | Local-first log of AI syncs, reviews, branch ops, and terminal sessions with relative timestamps |
+| **🔄 Auto-Updater** | Polls GitHub Releases for new versions and updates in one click |
 
-### Installation
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/Vinit080/repotracker.git
-   cd repotracker
-   ```
-
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
-
-3. **Start the server**
-   ```bash
-   npm start
-   ```
-
-4. **Open the Dashboard**
-   Navigate to `http://localhost:4177` in your browser. The built-in onboarding screen will guide you through adding your code directories and API keys!
-
-### Configuring your GitHub Token
-
-To enable features like cloning and viewing GitHub Action statuses or PRs, you'll need to provide a Personal Access Token (PAT).
-
-**Option 1: Fine-Grained Token (Recommended)**
-Follow these steps to generate a secure, scoped token:
-1. Go to your GitHub **Settings** > **Developer settings**.
-2. Select **Personal access tokens** > **Fine-grained tokens**, then click **Generate new token**.
-3. Name it "RepoTracker" and set the **Resource owner** to yourself.
-4. Under **Repository access**, select **All repositories** (or specific repos if you prefer).
-5. Under **Repository permissions**, find and set the following 5 permissions to **Read-only**:
-   - Actions
-   - Commit statuses
-   - Contents
-   - Issues
-   - Pull Requests
-6. Click **Generate token** and copy it immediately.
-
-**Option 2: Classic Token**
-Create a token and check the **`repo`** scope box.
-
-*Paste your generated token into the Settings tab of the dashboard.*
-
-## 🔒 Security First
-
-Because RepoTracker interacts directly with your file system and executes shell commands, it was built with a highly defensive architecture:
-- **No Plaintext Passwords**: Authentication relies on PBKDF2-SHA512 hashing and secure, time-limited cryptographic session tokens.
-- **Sanitized Configurations**: Sensitive keys (GitHub PAT, Gemini Key) are never exposed to the frontend console.
-- **Command Injection Prevention**: Strict validation and shell-escaping prevent malicious execution through URL cloning or regex searches.
-- **Anti-DNS Rebinding / CSRF Guard**: Strictly allows only `localhost` access and enforces `Origin` and `Host` validations across all REST and WebSocket connections, fully neutralizing Cross-Site WebSocket Hijacking (CSWSH) and standard CSRF attacks.
-
-## 🛠️ Technology Stack
-
-- **Backend**: Node.js (Vanilla, zero heavy frameworks), `node-pty` for native OS terminal spawning, `node-notifier` for native OS alerts.
-- **Frontend**: Vanilla JavaScript (ES6+), Semantic HTML5, `xterm.js` for robust terminal emulation, and a custom lightweight Glassmorphic CSS design system.
-- **Integrations**: GitHub API, WakaTime API, Google Gemini Pro.
-
-## 🤝 Collaborators & Contributors
-
-A massive thank you to the brilliant minds who helped bring this project to life. Your contributions, reviews, and ideas made RepoTracker possible:
-
-- **Vinzone** (Creator)
-- **Shravan Sharma** ([Shravan403](https://github.com/Shravan403))
-- **Soham Jarad** ([sohamjarad](https://github.com/sohamjarad))
+### 👥 Team Mode *(Team)*
+| Feature | Description |
+|---|---|
+| **🌐 LAN Dashboard** | Run `npm run team` to broadcast your dashboard to teammates over your local network |
+| **🔑 Invite Tokens** | Generate and revoke teammate invite tokens from the Team tab |
+| **📢 Team Standup** | AI-generated standup report visible to all team members |
 
 ---
 
-<div align="center">
-  <p>Built with ❤️ for developers who love to code.</p>
-</div>
+## 🚀 Quick Start
+
+```bash
+git clone https://github.com/Vinit080/repotracker.git
+cd repotracker
+npm install
+npm start
+```
+
+Open **[http://localhost:4177](http://localhost:4177)** in your browser. The setup wizard handles everything else.
+
+### Prerequisites
+
+| Requirement | Details |
+|---|---|
+| [Node.js](https://nodejs.org/) **v20+** | Required |
+| [Git](https://git-scm.com/) in your PATH | Required |
+| [GitHub PAT](https://github.com/settings/tokens) | Optional — for GitHub browser, Gist sync, CI status |
+| [Gemini API Key](https://aistudio.google.com/app/apikey) | Optional — for all AI features (free tier is sufficient) |
+| [WakaTime API Key](https://wakatime.com/settings/api-key) | Optional — for per-repo coding time |
+
+### Platform Compatibility
+
+| Platform | Status | Notes |
+|---|---|---|
+| **Windows 10/11** | ✅ Full support | PowerShell for terminal & notifications |
+| **macOS 12+** | ✅ Full support | Respects your default shell (zsh, bash, fish). Uses `osascript` for notifications & folder picker |
+| **Linux (Desktop)** | ✅ Full support | Requires `zenity` for the folder browser dialog (`sudo apt install zenity`). Uses `notify-send` for notifications |
+| **Linux (Headless)** | ⚠️ Partial | No folder picker or desktop notifications, but all core repo features, AI, terminal, and API work fine |
+
+> **macOS note:** Shelby Terminal automatically uses your configured shell (`$SHELL`) — zsh, fish, or bash — whatever you normally use.
+
+### GitHub Token Permissions
+
+**Classic PAT** — enable: `repo`, `gist`, `read:user`
+
+**Fine-grained PAT** — enable: `Contents (read)`, `Metadata (read)`, `Gists (read/write)`
+
+---
+
+## 🔑 Licensing
+
+RepoTracker is **free** for personal use. Core features are always free, forever.
+
+| Tier | Price | What's included |
+|---|---|---|
+| **Free** | $0 forever | Auto-discovery, health scoring, branch manager, search, Shelby terminal, smart alerts, GitHub browser |
+| **Pro** | $29 one-time | Everything free + AI Code Review, AI Git Sync, Weekly Standup, Gist Sync, WakaTime, Pomodoro, Dashboard Export |
+| **Team** | $79 one-time | Everything Pro + LAN dashboard (5 seats), invite tokens, team standup reports |
+
+> **One-time payment. No subscription. No recurring charges. Ever.**
+
+[**→ Get a Pro or Team license**](https://repotracker.lemonsqueezy.com)
+
+Enter your license key in **Settings → License** inside the app. The key is validated once and stored locally — fully offline after activation.
+
+---
+
+## ⚙️ Configuration
+
+Copy `.env.example` to `.env`:
+
+```bash
+cp .env.example .env
+```
+
+| Variable | Purpose | Required |
+|---|---|---|
+| `PORT` | Server port (default: `4177`) | Optional |
+| `REPOTRACKER_TEAM` | Set to `1` to enable LAN Team Mode | Optional |
+| `LEMONSQUEEZY_API_KEY` | License key validation via LemonSqueezy API | For paid license validation |
+| `LEMONSQUEEZY_STORE_ID` | Your LS store ID | For paid license validation |
+| `LEMONSQUEEZY_PRO_PRODUCT_ID` | Pro product ID | For paid license validation |
+| `LEMONSQUEEZY_TEAM_PRODUCT_ID` | Team product ID | For paid license validation |
+| `PING_URL` | Anonymous install counter endpoint | Optional |
+
+---
+
+## 🛠️ Development
+
+```bash
+npm run dev      # nodemon watch mode — auto-restarts on file changes
+npm start        # production mode
+npm run team     # Team Mode (LAN broadcast on 0.0.0.0)
+```
+
+### Project Structure
+
+```
+repotracker/
+├── src/
+│   ├── server.js          # HTTP server, .env loader, static file serving, sessions
+│   ├── routes/api.js      # All 37 API route handlers
+│   ├── git.js             # Git command execution & repo scanning
+│   ├── license.js         # License lifecycle — LS activate/deactivate/validate
+│   ├── security.js        # PBKDF2 hashing, session tokens, rate limiting, CSP
+│   ├── activity.js        # Local-first activity log (no cloud)
+│   ├── export.js          # Self-contained HTML dashboard export
+│   ├── notify.js          # Desktop notification dispatch (Win/Mac/Linux)
+│   ├── constants.js       # DEFAULT_CONFIG, SKIP_DIRS, MIME_TYPES
+│   └── utils.js           # Config normalization, sanitization, JSON helpers
+├── public/
+│   ├── index.html         # Single-page app shell
+│   ├── js/app.js          # Frontend logic (~2,280 lines)
+│   └── css/               # Design system & theme tokens
+├── cloudflare-worker/
+│   ├── ping-counter.js    # Anonymous opt-in install counter (Cloudflare Worker)
+│   └── DEPLOY.md          # 5-minute deploy guide
+├── data/                  # Runtime data (gitignored)
+│   ├── config.json        # User config — roots, API keys, license tier
+│   └── meta.json          # Repo metadata cache & notification cooldown state
+├── .env                   # Server secrets (gitignored)
+├── .env.example           # Template — safe to commit
+└── docker-compose.yml     # Docker deployment
+```
+
+---
+
+## 🐳 Docker
+
+```bash
+docker compose up -d
+```
+
+Access at [http://localhost:4177](http://localhost:4177). All data is persisted in the `./data` volume.
+
+**Team Mode via Docker:**
+```bash
+REPOTRACKER_TEAM=1 docker compose up -d
+```
+
+---
+
+## 🔒 Security
+
+See [SECURITY.md](./SECURITY.md) for the full threat model and vulnerability reporting process.
+
+**Key protections:**
+- PBKDF2-SHA512 password hashing (100,000 iterations, random salt per user)
+- Cryptographically random 256-bit session tokens, persisted across restarts
+- Host + Origin header validation — blocks DNS rebinding and CSRF attacks
+- Content-Security-Policy headers on every response
+- All shell inputs validated with allowlist regex — no raw string interpolation, ever
+- API keys stored server-side only — only masked sentinels (`••• (saved)`) sent to browser
+- License key stored locally — validated once via LemonSqueezy, then fully offline
+- Path traversal guards on all file read/write operations
+
+---
+
+## 🗺️ Roadmap
+
+| Version | Status | Focus |
+|---|---|---|
+| **v0.1.0** | ✅ Released | Core dashboard, health scoring, AI sync, Shelby terminal, WakaTime |
+| **v0.2.0** | ✅ Released | AI Code Review, Branch Manager, Gist Sync, Pomodoro, Ecosystem tab, GitHub browser, Smart notifications, LemonSqueezy licensing, full security audit |
+| **v0.3.0** | 🔜 Planned | Custom workflow pipelines — chain Setup → Test → Build → Commit into 1-click automations. Compiled binary distribution (`.exe`, `.dmg`) |
+| **v0.4.0** | 🔜 Planned | Global Dependency Graph — force-directed visual map of cross-repo dependencies and shared packages |
+| **v1.0.0** | 🔜 Planned | Native desktop app via Tauri — system tray, OS-level file watcher, no browser required |
+
+> ⭐ [Star us on GitHub](https://github.com/Vinit080/repotracker) · 💬 [Discussions](https://github.com/Vinit080/repotracker/discussions) · 🐛 [Issues](https://github.com/Vinit080/repotracker/issues)
+
+---
+
+## 🤝 Contributing
+
+Contributions, bug reports, and feature requests are welcome.
+
+1. Fork the repo
+2. Create your branch: `git checkout -b feat/your-feature`
+3. Commit your changes: `git commit -m 'feat: add your feature'`
+4. Push: `git push origin feat/your-feature`
+5. Open a Pull Request
+
+---
+
+## 📄 License
+
+Source-available. Free for personal, non-commercial use.
+Commercial use, removing license restrictions, or redistributing the software requires a paid license.
+
+© 2026 [Vinzone](https://github.com/Vinit080) — Built with ❤️ for developers who care about their Git hygiene.

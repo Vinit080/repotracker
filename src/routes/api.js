@@ -7,6 +7,7 @@ import { CONFIG_FILE, META_FILE, DEFAULT_CONFIG } from '../constants.js';
 import { readJson, writeJson, writeJsonIfMissing, normalizeConfig, readRequestJson, sendJson, sanitizeConfigForResponse } from '../utils.js';
 import { scanRepos, runGit, detectScripts } from '../git.js';
 import { hashPassword, verifyPassword, createSession, destroySession, isValidSession } from '../security.js';
+import { notifyDesktop } from '../notify.js';
 import os from 'node:os';
 import { WebSocketServer } from 'ws';
 import * as pty from 'node-pty';
@@ -289,6 +290,16 @@ export async function handleApi(request, response) {
     // onboardingComplete: once set to true, never go back to false
     const onboardingComplete = Boolean(body.onboardingComplete) || Boolean(config.onboardingComplete);
 
+    // Always carry forward fields not controlled by the settings form
+    const licenseKey          = config.licenseKey          || '';
+    const licenseTier         = config.licenseTier         || '';
+    const licenseInstanceId   = config.licenseInstanceId   || null;
+    const licenseActivatedAt  = config.licenseActivatedAt  || null;
+    const teamTokens          = config.teamTokens          || [];
+    const pingOptIn           = config.pingOptIn           ?? null;
+    const gistSyncId          = config.gistSyncId          || '';
+    const lastGistSync        = config.lastGistSync        || null;
+
     const updatedConfig = normalizeConfig({
       roots:          body.roots,
       maxDepth:       body.maxDepth,
@@ -297,16 +308,70 @@ export async function handleApi(request, response) {
       aiApiKey,
       wakatimeApiKey,
       appPasswordHash,
-      onboardingComplete
+      onboardingComplete,
+      licenseKey,
+      licenseTier,
+      licenseInstanceId,
+      licenseActivatedAt,
+      teamTokens,
+      pingOptIn,
+      gistSyncId,
+      lastGistSync,
     });
     await writeJson(CONFIG_FILE, updatedConfig);
     sendJson(response, 200, sanitizeConfigForResponse(updatedConfig));
     return;
   }
 
+
   if (request.method === 'GET' && requestUrl.pathname === '/api/repos') {
     const meta = await readJson(META_FILE, {});
-    sendJson(response, 200, await scanRepos(config, meta));
+    const rawRepos = await scanRepos(config, meta);
+    const repos = Array.isArray(rawRepos) ? rawRepos : [];
+
+    // Feature 3: Smart Desktop Notifications — fire alerts for repos needing attention
+    // Throttled: max 1 notification per repo per hour via meta.json lastNotifiedAt
+    const now = Date.now();
+    const HOUR_MS = 60 * 60 * 1000;
+    let metaDirty = false;
+    const notifMeta = meta._notifications || {};
+
+    for (const repo of repos) {
+      if (repo.isRemoteOnly) continue;
+      const lastNotified = notifMeta[repo.path]?.at || 0;
+      if (now - lastNotified < HOUR_MS) continue; // cooldown active
+
+      let title = null;
+      let message = null;
+
+      // Priority order: CI fail > commits behind > massive dirty > stale
+      if (repo.github?.ci === 'failure' && notifMeta[repo.path]?.lastCi !== 'failure') {
+        title = `❌ CI Failed — ${repo.name}`;
+        message = `A CI check just failed on ${repo.name}. Check GitHub Actions.`;
+      } else if (repo.status?.behind >= 5) {
+        title = `⚠️ ${repo.name} is falling behind`;
+        message = `${repo.name} is ${repo.status.behind} commits behind origin/${repo.status.currentBranch || 'main'}.`;
+      } else if (repo.status?.dirtyCount >= 20) {
+        title = `🟡 ${repo.name} has many uncommitted changes`;
+        message = `${repo.status.dirtyCount} uncommitted files in ${repo.name}. Consider committing or stashing.`;
+      } else if (repo.isStale) {
+        const days = repo.daysSinceCommit || 30;
+        title = `💤 ${repo.name} is inactive`;
+        message = `No commits in ${days} day${days !== 1 ? 's' : ''}. Still active?`;
+      }
+
+      if (title) {
+        notifyDesktop({ title, message }).catch(() => {}); // fire-and-forget
+        notifMeta[repo.path] = { at: now, lastCi: repo.github?.ci || null };
+        metaDirty = true;
+      }
+    }
+
+    if (metaDirty) {
+      await writeJson(META_FILE, { ...meta, _notifications: notifMeta });
+    }
+
+    sendJson(response, 200, repos);
     return;
   }
 
@@ -424,7 +489,9 @@ export async function handleApi(request, response) {
         return;
       }
       await execFileAsync('git', ['pull'], { cwd: process.cwd() });
-      await execAsync('npm install', { cwd: process.cwd() });
+      // P10: use execFileAsync (not execAsync) to avoid shell injection
+      const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+      await execFileAsync(npmCmd, ['install'], { cwd: process.cwd() });
       sendJson(response, 200, { ok: true });
       setTimeout(() => process.exit(0), 1000);
     } catch (err) {
@@ -473,6 +540,10 @@ export async function handleApi(request, response) {
 
   if (request.method === 'POST' && requestUrl.pathname === '/api/standup') {
     if (!config.aiApiKey) { sendJson(response, 401, { error: 'No AI API Key configured' }); return; }
+    // P9: license gate
+    const { checkFeature: _cfStandup } = await import('../license.js');
+    const { allowed: _allowedStandup, upgrade: _upgradeStandup } = _cfStandup('ai_review', config);
+    if (!_allowedStandup) { sendJson(response, 403, { requiresUpgrade: true, feature: 'ai_review', upgradeUrl: _upgradeStandup, error: 'AI Standup requires a Pro license.' }); return; }
     const body = await readRequestJson(request);
     const prompt = `You are an AI assistant. Summarize the following git commits from the past 7 days into a professional "Weekly Standup" report. Commits:\n${JSON.stringify(body.commits)}`;
     try {
@@ -499,7 +570,9 @@ export async function handleApi(request, response) {
       await fs.access(repoPath);
       if (!ensureTaskCapacity(response)) return;
       const taskId = randomBytes(16).toString('hex');
-      const command = process.platform === 'win32' ? 'powershell.exe' : 'bash';
+      const command = process.platform === 'win32'
+        ? 'powershell.exe'
+        : (process.env.SHELL || 'bash'); // respects zsh, fish, etc. on Mac/Linux
       
       const ptyProcess = pty.spawn(command, [], {
         name: 'xterm-color',
@@ -713,6 +786,10 @@ export async function handleApi(request, response) {
 
   if (request.method === 'POST' && requestUrl.pathname === '/api/repos/aisync') {
     if (!config.aiApiKey) { sendJson(response, 401, { error: 'No AI API Key configured' }); return; }
+    // P9: license gate
+    const { checkFeature: _cfAisync } = await import('../license.js');
+    const { allowed: _allowedAisync, upgrade: _upgradeAisync } = _cfAisync('ai_review', config);
+    if (!_allowedAisync) { sendJson(response, 403, { requiresUpgrade: true, feature: 'ai_review', upgradeUrl: _upgradeAisync, error: 'AI Sync requires a Pro license.' }); return; }
     const body = await readRequestJson(request);
     const repoPath = body.path ? path.resolve(body.path) : '';
     if (!repoPath || !(await isPathWithinRoots(repoPath, config.roots))) {
@@ -754,22 +831,36 @@ export async function handleApi(request, response) {
   if (request.method === 'GET' && requestUrl.pathname === '/api/wakatime') {
     if (!config.wakatimeApiKey) { sendJson(response, 401, { error: 'No WakaTime API Key configured' }); return; }
     try {
+      // P8: AbortController timeout so a slow/down WakaTime never hangs the request
       const auth = Buffer.from(config.wakatimeApiKey).toString('base64');
-      const wakaRes = await fetch(`https://wakatime.com/api/v1/users/current/stats/last_7_days`, { headers: { 'Authorization': `Basic ${auth}` } });
+      const wakaRes = await fetch(`https://wakatime.com/api/v1/users/current/stats/last_7_days`, {
+        headers: { 'Authorization': `Basic ${auth}` },
+        signal: AbortSignal.timeout(8000),
+      });
       const data = await wakaRes.json();
       sendJson(response, wakaRes.status, data);
-    } catch (err) { sendJson(response, 500, { error: err.message }); }
+    } catch (err) { sendJson(response, 500, { error: err.name === 'TimeoutError' ? 'WakaTime request timed out' : err.message }); }
     return;
   }
 
   if (request.method === 'GET' && requestUrl.pathname === '/api/github/repos') {
     if (!config.githubPat) { sendJson(response, 401, { error: 'No GitHub PAT configured' }); return; }
     try {
-      const ghResponse = await fetch(`https://api.github.com/user/repos?sort=updated&per_page=100`, {
-        headers: { 'Authorization': `Bearer ${config.githubPat}`, 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'RepoTracker' }
-      });
-      const data = await ghResponse.json();
-      sendJson(response, ghResponse.status, data);
+      const allRepos = [];
+      let page = 1;
+      while (true) {
+        const ghResponse = await fetch(
+          `https://api.github.com/user/repos?visibility=all&affiliation=owner,collaborator,organization_member&sort=updated&per_page=100&page=${page}`,
+          { headers: { 'Authorization': `Bearer ${config.githubPat}`, 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'RepoTracker' } }
+        );
+        if (!ghResponse.ok) { const err = await ghResponse.json(); sendJson(response, ghResponse.status, err); return; }
+        const batch = await ghResponse.json();
+        if (!Array.isArray(batch) || batch.length === 0) break;
+        allRepos.push(...batch);
+        if (batch.length < 100) break;
+        page++;
+      }
+      sendJson(response, 200, allRepos);
     } catch (err) { sendJson(response, 500, { error: err.message }); }
     return;
   }
@@ -834,7 +925,321 @@ export async function handleApi(request, response) {
     return;
   }
 
+  // POST /api/license  OR  POST /api/license/activate
+  // Calls LemonSqueezy /activate endpoint — consumes 1 activation slot, returns instanceId.
+  if (request.method === 'POST' && (requestUrl.pathname === '/api/license' || requestUrl.pathname === '/api/license/activate')) {
+    const body = await readRequestJson(request);
+    const key = typeof body.key === 'string' ? body.key.trim() : '';
+    if (!key) { sendJson(response, 400, { ok: false, error: 'No license key provided.' }); return; }
 
+    // Build a human-readable instance name: hostname + platform, e.g. "DEVBOX (win32)"
+    const instanceName = `${os.hostname().slice(0, 40)} (${process.platform})`;
+
+    const { activateLicenseKey } = await import('../license.js');
+    const { valid, tier, instanceId, error } = await activateLicenseKey(key, instanceName);
+
+    if (!valid) { sendJson(response, 400, { ok: false, error: error || 'Invalid license key.' }); return; }
+
+    // Persist key, tier, and instanceId — instanceId is needed for future deactivation
+    const updatedConfig = normalizeConfig({
+      ...config,
+      licenseKey:   key,
+      licenseTier:  tier,
+      licenseInstanceId: instanceId || null,
+    });
+    await writeJson(CONFIG_FILE, updatedConfig);
+
+    sendJson(response, 200, {
+      ok: true,
+      tier,
+      instanceId,
+      message: `${tier === 'team' ? 'Team' : 'Pro'} license activated on this machine.`,
+    });
+    return;
+  }
+
+  // GET /api/license — return current license tier and key status
+  if (request.method === 'GET' && requestUrl.pathname === '/api/license') {
+    const { getLicenseTier } = await import('../license.js');
+    const tier = getLicenseTier(config);
+    sendJson(response, 200, {
+      tier,
+      hasKey:     !!config.licenseKey,
+      instanceId: config.licenseInstanceId || null,
+      activatedOn: config.licenseActivatedAt || null,
+    });
+    return;
+  }
+
+  // DELETE /api/license — revoke and deactivate license key
+  // Calls LemonSqueezy /deactivate to free the activation slot so the user can move machines.
+  if (request.method === 'DELETE' && requestUrl.pathname === '/api/license') {
+    if (config.licenseKey && config.licenseInstanceId) {
+      const { deactivateLicenseKey } = await import('../license.js');
+      // Fire-and-forget — don't block on LS network call; local revocation always succeeds
+      deactivateLicenseKey(config.licenseKey, config.licenseInstanceId).catch(() => {});
+    }
+    const updatedConfig = normalizeConfig({
+      ...config,
+      licenseKey: '',
+      licenseTier: '',
+      licenseInstanceId: null,
+      licenseActivatedAt: null,
+    });
+    await writeJson(CONFIG_FILE, updatedConfig);
+    sendJson(response, 200, { ok: true, message: 'License deactivated. Activation slot freed.' });
+    return;
+  }
+
+  // GET /api/team/status — return team mode status and active token count
+  if (request.method === 'GET' && requestUrl.pathname === '/api/team/status') {
+    const teamMode = Boolean(process.env.REPOTRACKER_TEAM === '1' || process.argv?.includes?.('--team'));
+    const teamUrl = teamMode ? `http://${(() => {
+      const ifaces = Object.values(os.networkInterfaces());
+      for (const list of ifaces) {
+        for (const iface of (list || [])) {
+          if (iface.family === 'IPv4' && !iface.internal) return iface.address;
+        }
+      }
+      return 'localhost';
+    })()}:${config.port || 4177}` : null;
+    const tokens = Array.isArray(config.teamTokens) ? config.teamTokens : [];
+    sendJson(response, 200, { teamMode, teamUrl, tokenCount: tokens.length });
+    return;
+  }
+
+  // POST /api/team/token — generate a new team invite token
+  if (request.method === 'POST' && requestUrl.pathname === '/api/team/token') {
+    const body = await readRequestJson(request);
+    const label = typeof body.label === 'string' ? body.label.trim().slice(0, 80) : 'Teammate';
+    const token = randomBytes(24).toString('hex');
+    const newToken = { token, label, createdAt: new Date().toISOString() };
+    const tokens = Array.isArray(config.teamTokens) ? [...config.teamTokens, newToken] : [newToken];
+    const updatedConfig = normalizeConfig({ ...config, teamTokens: tokens });
+    await writeJson(CONFIG_FILE, updatedConfig);
+    sendJson(response, 200, { ok: true, token: newToken });
+    return;
+  }
+
+  // DELETE /api/team/token — revoke a team invite token
+  if (request.method === 'DELETE' && requestUrl.pathname === '/api/team/token') {
+    const body = await readRequestJson(request);
+    const tokenToRevoke = typeof body.token === 'string' ? body.token : '';
+    const tokens = (config.teamTokens || []).filter(t => t.token !== tokenToRevoke);
+    const updatedConfig = normalizeConfig({ ...config, teamTokens: tokens });
+    await writeJson(CONFIG_FILE, updatedConfig);
+    sendJson(response, 200, { ok: true });
+    return;
+  }
+
+  // GET /api/activity — return recent local activity log
+  if (request.method === 'GET' && requestUrl.pathname === '/api/activity') {
+    const { getRecentActivity, getWeeklyStats } = await import('../activity.js');
+    const [recent, weekly] = await Promise.all([getRecentActivity(50), getWeeklyStats()]);
+    sendJson(response, 200, { recent, weekly });
+    return;
+  }
+
+  // POST /api/ping-optin — save the user's ping opt-in preference
+  if (request.method === 'POST' && requestUrl.pathname === '/api/ping-optin') {
+    const body = await readRequestJson(request);
+    const optIn = body.optIn === true;
+    const updatedConfig = normalizeConfig({ ...config, pingOptIn: optIn });
+    await writeJson(CONFIG_FILE, updatedConfig);
+    sendJson(response, 200, { ok: true, pingOptIn: optIn });
+    return;
+  }
+
+  // POST /api/repos/ai-review — AI code review for a repository
+  if (request.method === 'POST' && requestUrl.pathname === '/api/repos/ai-review') {
+    if (!config.aiApiKey) { sendJson(response, 401, { error: 'No AI API Key configured' }); return; }
+    const body = await readRequestJson(request);
+    const repoPath = body.path ? path.resolve(body.path) : '';
+    if (!repoPath || !(await isPathWithinRoots(repoPath, config.roots))) {
+      sendJson(response, 403, { error: 'Path outside configured roots' }); return;
+    }
+    try {
+      await fs.access(repoPath);
+      const diff = (await runGit(repoPath, ['diff', 'HEAD~1', 'HEAD'])) || (await runGit(repoPath, ['diff'])) || '';
+      if (!diff.trim()) { sendJson(response, 400, { error: 'No diff available to review' }); return; }
+      const prompt = `You are an expert code reviewer. Review the following git diff and provide:
+1. A brief summary of what changed (2-3 sentences)
+2. Any potential bugs or issues found
+3. Security concerns (if any)
+4. Suggestions for improvement
+
+Diff:
+${diff.slice(0, 12000)}
+
+Respond in concise markdown format.`;
+      const aiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${config.aiApiKey}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+        signal: AbortSignal.timeout(30000),
+      });
+      const data = await aiResponse.json();
+      if (data.error) throw new Error(data.error.message);
+      const review = data.candidates?.[0]?.content?.parts?.[0]?.text || 'No review generated.';
+      sendJson(response, 200, { ok: true, review });
+    } catch (err) { sendJson(response, 500, { error: err.message }); }
+    return;
+  }
+
+  // POST /api/repos/branch — branch operations (list, checkout, create, merge, delete)
+  if (request.method === 'POST' && requestUrl.pathname === '/api/repos/branch') {
+    const body = await readRequestJson(request);
+    const repoPath = body.path ? path.resolve(body.path) : '';
+    const action = typeof body.action === 'string' ? body.action : '';
+    const branchName = typeof body.branch === 'string' ? body.branch.trim() : '';
+
+    if (!repoPath || !(await isPathWithinRoots(repoPath, config.roots))) {
+      sendJson(response, 403, { error: 'Path outside configured roots' }); return;
+    }
+    // Validate branch name to prevent injection
+    if (branchName && !/^[a-zA-Z0-9._\-/]{1,100}$/.test(branchName)) {
+      sendJson(response, 400, { error: 'Invalid branch name' }); return;
+    }
+    try {
+      await fs.access(repoPath);
+      if (action === 'list') {
+        const out = await runGit(repoPath, ['branch', '-a', '--format=%(refname:short)|%(HEAD)']);
+        const branches = (out || '').split(/\r?\n/).filter(Boolean).map(line => {
+          const [name, current] = line.split('|');
+          return { name: name.trim(), current: current === '*' };
+        });
+        sendJson(response, 200, { branches });
+      } else if (action === 'checkout') {
+        if (!branchName) { sendJson(response, 400, { error: 'Branch name required' }); return; }
+        await runGit(repoPath, ['checkout', branchName]);
+        sendJson(response, 200, { ok: true });
+      } else if (action === 'create') {
+        if (!branchName) { sendJson(response, 400, { error: 'Branch name required' }); return; }
+        await runGit(repoPath, ['checkout', '-b', branchName]);
+        sendJson(response, 200, { ok: true });
+      } else if (action === 'merge') {
+        if (!branchName) { sendJson(response, 400, { error: 'Branch name required' }); return; }
+        await runGit(repoPath, ['merge', branchName]);
+        sendJson(response, 200, { ok: true });
+      } else if (action === 'delete') {
+        if (!branchName) { sendJson(response, 400, { error: 'Branch name required' }); return; }
+        await runGit(repoPath, ['branch', '-d', branchName]);
+        sendJson(response, 200, { ok: true });
+      } else {
+        sendJson(response, 400, { error: 'Unknown branch action' });
+      }
+    } catch (err) { sendJson(response, 500, { error: err.message }); }
+    return;
+  }
+
+  // ── Feature 1: Gist Config Sync ──────────────────────────────────────────────
+
+  // POST /api/config/sync-to-gist — serialize config and push to a GitHub Gist
+  if (request.method === 'POST' && requestUrl.pathname === '/api/config/sync-to-gist') {
+    if (!config.githubPat) { sendJson(response, 401, { error: 'No GitHub PAT configured. Add one in Settings.' }); return; }
+    try {
+      // Build a sanitized snapshot — no secrets, no password hash
+      const snapshot = {
+        _meta: { app: 'RepoTracker', version: '0.2.0', syncedAt: new Date().toISOString() },
+        roots:            config.roots,
+        maxDepth:         config.maxDepth,
+        userName:         config.userName,
+        // NOTE: secrets (githubPat, aiApiKey, wakatimeApiKey, licenseKey) are intentionally omitted
+      };
+      const content = JSON.stringify(snapshot, null, 2);
+      const gistPayload = {
+        description: 'RepoTracker Config Sync',
+        public: false,
+        files: { 'repotracker-config.json': { content } },
+      };
+
+      let gistId = config.gistSyncId || '';
+      let gistRes;
+
+      if (gistId) {
+        // Update existing Gist
+        gistRes = await fetch(`https://api.github.com/gists/${encodeURIComponent(gistId)}`, {
+          method: 'PATCH',
+          headers: { 'Authorization': `Bearer ${config.githubPat}`, 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'RepoTracker', 'Content-Type': 'application/json' },
+          body: JSON.stringify(gistPayload),
+          signal: AbortSignal.timeout(10000),
+        });
+      } else {
+        // Create new Gist
+        gistRes = await fetch('https://api.github.com/gists', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${config.githubPat}`, 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'RepoTracker', 'Content-Type': 'application/json' },
+          body: JSON.stringify(gistPayload),
+          signal: AbortSignal.timeout(10000),
+        });
+      }
+
+      if (!gistRes.ok) {
+        const err = await gistRes.json();
+        sendJson(response, gistRes.status, { error: err.message || 'GitHub Gist API error' });
+        return;
+      }
+
+      const gistData = await gistRes.json();
+      gistId = gistData.id;
+
+      // Persist the gist ID and sync timestamp
+      const updatedConfig = normalizeConfig({ ...config, gistSyncId: gistId, lastGistSync: new Date().toISOString() });
+      await writeJson(CONFIG_FILE, updatedConfig);
+
+      sendJson(response, 200, { ok: true, gistId, gistUrl: gistData.html_url, syncedAt: updatedConfig.lastGistSync });
+    } catch (err) {
+      sendJson(response, 500, { error: err.name === 'TimeoutError' ? 'GitHub request timed out' : err.message });
+    }
+    return;
+  }
+
+  // POST /api/config/restore-from-gist — fetch config snapshot from a GitHub Gist and merge
+  if (request.method === 'POST' && requestUrl.pathname === '/api/config/restore-from-gist') {
+    if (!config.githubPat) { sendJson(response, 401, { error: 'No GitHub PAT configured. Add one in Settings.' }); return; }
+    const body = await readRequestJson(request);
+    const gistId = typeof body.gistId === 'string' ? body.gistId.trim() : '';
+    if (!gistId) { sendJson(response, 400, { error: 'Gist ID is required.' }); return; }
+
+    try {
+      const gistRes = await fetch(`https://api.github.com/gists/${encodeURIComponent(gistId)}`, {
+        headers: { 'Authorization': `Bearer ${config.githubPat}`, 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'RepoTracker' },
+        signal: AbortSignal.timeout(10000),
+      });
+
+      if (!gistRes.ok) {
+        const err = await gistRes.json();
+        sendJson(response, gistRes.status, { error: err.message || 'Gist not found or not accessible.' });
+        return;
+      }
+
+      const gistData = await gistRes.json();
+      const fileContent = gistData.files?.['repotracker-config.json']?.content;
+      if (!fileContent) { sendJson(response, 400, { error: 'No RepoTracker config found in this Gist.' }); return; }
+
+      let snapshot;
+      try { snapshot = JSON.parse(fileContent); } catch { sendJson(response, 400, { error: 'Gist content is not valid JSON.' }); return; }
+
+      if (snapshot._meta?.app !== 'RepoTracker') {
+        sendJson(response, 400, { error: 'This Gist does not appear to be a RepoTracker config.' }); return;
+      }
+
+      // Merge snapshot into current config — only safe fields, preserve secrets
+      const merged = normalizeConfig({
+        ...config,
+        roots:     Array.isArray(snapshot.roots)    ? snapshot.roots    : config.roots,
+        maxDepth:  typeof snapshot.maxDepth === 'number' ? snapshot.maxDepth : config.maxDepth,
+        userName:  typeof snapshot.userName === 'string' ? snapshot.userName : config.userName,
+        gistSyncId:  gistId,
+        lastGistSync: new Date().toISOString(),
+      });
+      await writeJson(CONFIG_FILE, merged);
+
+      sendJson(response, 200, { ok: true, restoredAt: merged.lastGistSync, roots: merged.roots });
+    } catch (err) {
+      sendJson(response, 500, { error: err.name === 'TimeoutError' ? 'GitHub request timed out' : err.message });
+    }
+    return;
+  }
 
   sendJson(response, 404, { error: 'Unknown API route' });
 }

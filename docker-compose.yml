@@ -1,0 +1,24 @@
+services:
+  repotracker:
+    build: .
+    image: repotracker:latest
+    container_name: repotracker
+    restart: unless-stopped
+    ports:
+      - "4177:4177"
+    volumes:
+      # Persist config, sessions, activity across restarts
+      - repotracker-data:/app/data
+      # Mount your code directories (read-only) for scanning
+      # Uncomment and adjust paths:
+      # - /home/user/code:/repos/code:ro
+      # - /home/user/projects:/repos/projects:ro
+    environment:
+      - REPOTRACKER_TEAM=1
+      - PORT=4177
+    # Uncomment to set a custom password on first run:
+    # - REPOTRACKER_PASSWORD=changeme
+
+volumes:
+  repotracker-data:
+    driver: local

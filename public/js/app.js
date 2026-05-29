@@ -374,9 +374,12 @@ async function scanRepos() {
 
   try {
     const data = await api('/api/repos');
-    state.repos = data.repos;
-    state.config = { ...state.config, roots: data.roots, maxDepth: data.maxDepth };
-    el.scanMeta.textContent = `${data.repos.length} repos found · ${dateFormatter.format(new Date(data.scannedAt))}`;
+    // API returns a plain array of repos (not { repos: [...] })
+    const repos = Array.isArray(data) ? data : (data.repos || []);
+    state.repos = repos;
+    if (data.roots)     state.config = { ...state.config, roots: data.roots, maxDepth: data.maxDepth };
+    const scannedAt = data.scannedAt ? ` · ${dateFormatter.format(new Date(data.scannedAt))}` : '';
+    el.scanMeta.textContent = `${repos.length} repos found${scannedAt}`;
     if (data.errors?.length) el.scanMeta.textContent += ` · ${data.errors.join('; ')}`;
     render();
     fetchGithubRepos();
@@ -384,6 +387,7 @@ async function scanRepos() {
     fetchTodos();
     fetchWakatimeStats();
     checkForAppUpdates();
+    if (typeof populateEcosystemTab === 'function') populateEcosystemTab();
   } catch (err) {
     el.scanMeta.textContent = err.message;
     if (err.message === 'UNAUTHORIZED') {
@@ -407,16 +411,16 @@ function matchesFilter(repo) {
   if (state.filter === 'all') return true;
   if (state.filter === 'pinned') return repo.pinned;
 
-  // Cloud repos have no local status, so they don't apply to health filters
-  if (repo.isCloud) return false;
+  // Cloud repos and repos with no local status don't apply to health filters
+  if (repo.isCloud || !repo.status) return false;
 
   const map = {
-    dirty: repo.status.dirtyCount > 0,
-    ahead: repo.status.ahead > 0,
+    dirty:  repo.status.dirtyCount > 0,
+    ahead:  repo.status.ahead > 0,
     behind: repo.status.behind > 0,
-    stale: isStale(repo),
-    clean: !repo.status.dirtyCount && !repo.status.ahead && !repo.status.behind,
-    risk: isStale(repo) || repo.status.behind > 10 || repo.status.dirtyCount > 10 || repo.github?.ci === 'failure'
+    stale:  isStale(repo),
+    clean:  !repo.status.dirtyCount && !repo.status.ahead && !repo.status.behind,
+    risk:   isStale(repo) || repo.status.behind > 10 || repo.status.dirtyCount > 10 || repo.github?.ci === 'failure'
   };
   return Boolean(map[state.filter]);
 }
@@ -443,16 +447,17 @@ function render() {
   renderSpotlight();
   renderInsights();
   renderRepos(visible);
+  if (typeof populateEcosystemTab === 'function') populateEcosystemTab();
   el.resultCount.textContent = `${visible.length} shown`;
 }
 
 function renderMetrics() {
   const repos = state.repos;
   const items = [
-    ['Total repos', repos.length],
-    ['Need attention', repos.filter(r => r.health < 75 || r.status.dirtyCount || r.status.behind).length],
-    ['Dirty worktrees', repos.filter(r => r.status.dirtyCount > 0).length],
-    ['Sync drift', repos.filter(r => r.status.ahead || r.status.behind).length]
+    ['Total repos',     repos.length],
+    ['Need attention',  repos.filter(r => r.health < 75 || r.status?.dirtyCount || r.status?.behind).length],
+    ['Dirty worktrees', repos.filter(r => r.status?.dirtyCount > 0).length],
+    ['Sync drift',      repos.filter(r => r.status?.ahead || r.status?.behind).length]
   ];
   el.metricsGrid.replaceChildren(...items.map(([label, value]) => {
     const card = document.createElement('article');
@@ -465,7 +470,7 @@ function renderMetrics() {
 function renderSpotlight() {
   const [repo] = [...state.repos].sort((a, b) => {
     if (a.pinned !== b.pinned) return Number(b.pinned) - Number(a.pinned);
-    return a.health - b.health || b.status.dirtyCount - a.status.dirtyCount;
+    return a.health - b.health || (b.status?.dirtyCount || 0) - (a.status?.dirtyCount || 0);
   });
   if (!repo) {
     el.spotlight.innerHTML = '<span class="muted">Spotlight appears after scanning.</span>';
@@ -480,7 +485,7 @@ function renderSpotlight() {
       <div class="chips">
         ${renderChip(`Health ${repo.health}`, repo.health < 70 ? 'danger' : repo.health < 86 ? 'warn' : '')}
         ${renderChip(repo.branch || 'detached', 'info')}
-        ${repo.status.dirtyCount ? renderChip(`${repo.status.dirtyCount} changed`, 'warn') : renderChip('clean')}
+        ${repo.status?.dirtyCount ? renderChip(`${repo.status.dirtyCount} changed`, 'warn') : renderChip('clean')}
       </div>
     </div>
     <div>
@@ -495,7 +500,7 @@ function renderSpotlight() {
 
 function renderInsights() {
   const attention = [...state.repos]
-    .filter(r => r.health < 85 || r.status.dirtyCount || r.status.behind)
+    .filter(r => r.health < 85 || r.status?.dirtyCount || r.status?.behind)
     .slice(0, 6);
 
   el.attentionList.replaceChildren(
@@ -538,7 +543,20 @@ function renderRepos(repos) {
     el.repoGrid.replaceChildren(empty);
     return;
   }
-  el.repoGrid.replaceChildren(...repos.map(renderRepoCard));
+  el.repoGrid.replaceChildren(...repos.map(repo => {
+    const fragment = renderRepoCard(repo);
+    // Wire new feature buttons after the card is built
+    if (!repo.isRemoteOnly) {
+      const aiRevBtn = fragment.querySelector('.ai-review-button');
+      // P6: use licenseKeySet, not the masked key string, to detect if AI is configured
+      if (aiRevBtn && repo.status?.dirtyCount > 0 && state.config?.aiApiKey && state.config.aiApiKey !== '') {
+        wireAiReviewButton(aiRevBtn, repo);
+      }
+      const branchBtn = fragment.querySelector('.branch-button');
+      if (branchBtn) wireBranchButton(branchBtn, repo);
+    }
+    return fragment;
+  }));
 }
 
 function renderRepoCard(repo) {
@@ -580,9 +598,9 @@ function renderRepoCard(repo) {
   chips.innerHTML = [
     repo.isRemoteOnly ? renderChip('☁️ Cloud', 'info') : '',
     !repo.isRemoteOnly ? renderChip(repo.branch || 'detached', 'info') : '',
-    repo.status.dirtyCount ? renderChip(`${repo.status.dirtyCount} changed`, 'warn') : (!repo.isRemoteOnly ? renderChip('clean') : ''),
-    repo.status.ahead ? renderChip(`ahead ${repo.status.ahead}`, 'warn') : '',
-    repo.status.behind ? renderChip(`behind ${repo.status.behind}`, 'danger') : '',
+    repo.status?.dirtyCount ? renderChip(`${repo.status.dirtyCount} changed`, 'warn') : (!repo.isRemoteOnly ? renderChip('clean') : ''),
+    repo.status?.ahead  ? renderChip(`ahead ${repo.status.ahead}`, 'warn') : '',
+    repo.status?.behind ? renderChip(`behind ${repo.status.behind}`, 'danger') : '',
     ...(repo.tags || []).map(tag => renderChip(tag))
   ].join('');
 
@@ -713,7 +731,7 @@ function renderRepoCard(repo) {
       finally { auditBtn.textContent = 'Audit'; }
     });
 
-    if (repo.status.dirtyCount > 0) {
+    if (repo.status?.dirtyCount > 0) {
       aisyncBtn.classList.remove('hidden');
       aisyncBtn.classList.add('accent');
       aisyncBtn.addEventListener('click', async () => {
@@ -1169,6 +1187,11 @@ async function completeWizard() {
   // Only save a GitHub token if it was successfully verified
   const githubPat = wizard.githubUser ? wizard.githubToken : '';
   const aiApiKey = wizard.aiKey;
+  // Capture ping opt-in from wizard checkbox
+  const pingOptIn = document.getElementById('wizPingOptIn')?.checked === true;
+  if (pingOptIn !== (state.config?.pingOptIn === true)) {
+    api('/api/ping-optin', { method: 'POST', body: JSON.stringify({ optIn: pingOptIn }) }).catch(() => {});
+  }
   const wakatimeApiKey = wizard.wakaKey;
   const appPassword = wizard.password;
 
@@ -1354,35 +1377,906 @@ document.getElementById('themeToggleBtn').addEventListener('click', () => {
   localStorage.setItem('repo_theme', next);
 });
 
+// ─── AI Code Reviewer ─────────────────────────────────────────────────────────
+function wireAiReviewButton(btn, repo) {
+  btn.classList.remove('hidden');
+  btn.addEventListener('click', async () => {
+    const dialog = document.getElementById('aiReviewDialog');
+    const content = document.getElementById('aiReviewContent');
+    content.textContent = '🤖 Analyzing your changes with Gemini...';
+    dialog.showModal();
+    btn.disabled = true;
+    try {
+      const res = await api('/api/repos/ai-review', { method: 'POST', body: JSON.stringify({ path: repo.path }) });
+      content.textContent = res.review;
+    } catch (err) {
+      content.textContent = `❌ Review failed: ${err.message}`;
+    } finally { btn.disabled = false; }
+  });
+}
+
+// ─── Branch Manager ───────────────────────────────────────────────────────────
+let _branchManagerRepo = null;
+function wireBranchButton(btn, repo) {
+  btn.classList.remove('hidden');
+  btn.addEventListener('click', () => openBranchManager(repo));
+}
+async function openBranchManager(repo) {
+  _branchManagerRepo = repo;
+  document.getElementById('branchManagerRepoName').textContent = repo.name;
+  document.getElementById('branchManagerDialog').showModal();
+  await refreshBranchList(repo.path);
+}
+async function refreshBranchList(repoPath) {
+  const list = document.getElementById('branchList');
+  list.innerHTML = '<span class="muted">Loading branches...</span>';
+  try {
+    const res = await api(`/api/repos/branches?path=${encodeURIComponent(repoPath)}`);
+    list.replaceChildren(...res.branches.map(b => {
+      const d = document.createElement('div');
+      d.className = 'attention-item';
+      d.style.cssText = 'padding:10px 12px;align-items:center;gap:8px;';
+      d.innerHTML = `
+        <span style="flex:1;font-weight:${b.isCurrent?'700':'400'};color:${b.isCurrent?'var(--accent)':'var(--text)'};font-family:monospace;">
+          ${b.isCurrent ? '● ' : ''}${escapeHtml(b.name)}${b.isRemote?` <span style="color:var(--muted);font-size:0.78rem;">[remote]</span>`:''}
+        </span>
+        <span class="muted" style="font-size:0.8rem;">${escapeHtml(b.date||'')}</span>
+        ${!b.isRemote&&!b.isCurrent?`
+          <button class="ghost" style="font-size:0.78rem;padding:3px 8px;" data-action="checkout" data-branch="${escapeAttribute(b.name)}">Checkout</button>
+          <button class="ghost" style="font-size:0.78rem;padding:3px 8px;color:var(--warn);" data-action="merge" data-branch="${escapeAttribute(b.name)}">Merge</button>
+          <button class="ghost" style="font-size:0.78rem;padding:3px 8px;color:var(--danger);" data-action="delete" data-branch="${escapeAttribute(b.name)}">Delete</button>
+        `:''}
+      `;
+      d.querySelectorAll('[data-action]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const origText = btn.textContent;
+          btn.disabled = true; btn.textContent = '...';
+          try {
+            await api('/api/repos/branch', { method: 'POST', body: JSON.stringify({ path: repoPath, action: btn.dataset.action, branch: btn.dataset.branch }) });
+            showToast(`✅ ${btn.dataset.action} → ${btn.dataset.branch}`, 'success');
+            await refreshBranchList(repoPath);
+            if (btn.dataset.action !== 'delete') scanRepos();
+          } catch (err) { showToast(`Failed: ${err.message}`, 'error'); btn.disabled = false; btn.textContent = origText; }
+        });
+      });
+      return d;
+    }));
+    if (!res.branches.length) list.innerHTML = '<span class="muted">No branches found.</span>';
+  } catch (err) { list.innerHTML = `<span class="muted">Error: ${escapeHtml(err.message)}</span>`; }
+}
+document.getElementById('createBranchBtn')?.addEventListener('click', async () => {
+  if (!_branchManagerRepo) return;
+  const name = document.getElementById('newBranchInput')?.value.trim();
+  const from = document.getElementById('newBranchFrom')?.value.trim();
+  if (!name) { showToast('Enter a branch name', 'warn'); return; }
+  try {
+    await api('/api/repos/branch', { method: 'POST', body: JSON.stringify({ path: _branchManagerRepo.path, action: 'create', branch: name, from: from||undefined }) });
+    showToast(`✅ Created branch: ${name}`, 'success');
+    document.getElementById('newBranchInput').value = '';
+    document.getElementById('newBranchFrom').value = '';
+    await refreshBranchList(_branchManagerRepo.path);
+  } catch (err) { showToast(`Failed: ${err.message}`, 'error'); }
+});
+
+// ─── Pomodoro Timer ───────────────────────────────────────────────────────────
+const POMO_PHASES = [
+  {label:'FOCUS',dur:25*60,color:'var(--accent)'},{label:'SHORT BREAK',dur:5*60,color:'var(--success)'},
+  {label:'FOCUS',dur:25*60,color:'var(--accent)'},{label:'SHORT BREAK',dur:5*60,color:'var(--success)'},
+  {label:'FOCUS',dur:25*60,color:'var(--accent)'},{label:'SHORT BREAK',dur:5*60,color:'var(--success)'},
+  {label:'FOCUS',dur:25*60,color:'var(--accent)'},{label:'LONG BREAK',dur:15*60,color:'var(--info)'},
+];
+let _pomoPhase=0,_pomoSecs=POMO_PHASES[0].dur,_pomoRunning=false,_pomoInterval=null;
+function updatePomodoroUI(){
+  const p=POMO_PHASES[_pomoPhase];
+  const m=String(Math.floor(_pomoSecs/60)).padStart(2,'0'),s=String(_pomoSecs%60).padStart(2,'0');
+  const timeEl=document.getElementById('pomodoroTime'),phaseEl=document.getElementById('pomodoroPhase'),cycleEl=document.getElementById('pomodoroCycle'),startEl=document.getElementById('pomodoroStartBtn');
+  if(timeEl)timeEl.textContent=`${m}:${s}`;
+  if(phaseEl){phaseEl.textContent=p.label;phaseEl.style.color=p.color;}
+  if(cycleEl)cycleEl.textContent=`Session ${Math.min(Math.floor(_pomoPhase/2)+1,4)} of 4`;
+  if(startEl)startEl.textContent=_pomoRunning?'⏸ Pause':'▶ Start';
+  document.title=_pomoRunning?`${m}:${s} — ${p.label} | RepoTracker`:'RepoTracker — Git Mission Control';
+  [1,2,3,4].forEach(i=>{const d=document.getElementById(`pomoDot${i}`);if(d)d.style.background=i*2-2<_pomoPhase?'var(--accent)':'var(--border)';});
+}
+document.getElementById('pomodoroStartBtn')?.addEventListener('click',()=>{
+  if(_pomoRunning){clearInterval(_pomoInterval);_pomoRunning=false;}else{
+    _pomoRunning=true;
+    _pomoInterval=setInterval(()=>{
+      _pomoSecs--;
+      if(_pomoSecs<=0){
+        clearInterval(_pomoInterval);_pomoRunning=false;
+        const f=POMO_PHASES[_pomoPhase];
+        if(Notification.permission==='granted')new Notification(`RepoTracker — ${f.label} complete!`,{body:_pomoPhase%2===0?'Time for a break 🎉':'Back to work! 💪',icon:'/logo.svg'});
+        _pomoPhase=(_pomoPhase+1)%POMO_PHASES.length;
+        _pomoSecs=POMO_PHASES[_pomoPhase].dur;
+      }
+      updatePomodoroUI();
+    },1000);
+  }
+  updatePomodoroUI();
+});
+document.getElementById('pomodoroResetBtn')?.addEventListener('click',()=>{
+  clearInterval(_pomoInterval);_pomoRunning=false;_pomoPhase=0;_pomoSecs=POMO_PHASES[0].dur;
+  document.title='RepoTracker — Git Mission Control';updatePomodoroUI();
+});
+document.getElementById('pomodoroDialog')?.addEventListener('close',()=>{
+  // Always clear the interval and reset title on dialog close (even if running — user dismissed it)
+  clearInterval(_pomoInterval);
+  _pomoRunning=false;
+  document.title='RepoTracker — Git Mission Control';
+  updatePomodoroUI();
+});
+document.getElementById('pomodoroBtn')?.addEventListener('click',()=>{
+  if(Notification.permission==='default')Notification.requestPermission();
+  document.getElementById('pomodoroDialog').showModal();updatePomodoroUI();
+});
+
+// ─── Gist Config Sync ─────────────────────────────────────────────────────────
+document.getElementById('gistSyncBtn')?.addEventListener('click',async()=>{
+  const btn=document.getElementById('gistSyncBtn'),status=document.getElementById('gistSyncStatus');
+  btn.disabled=true;btn.textContent='Syncing...';
+  try{
+    const res=await api('/api/config/sync-to-gist',{method:'POST',body:JSON.stringify({})});
+    status.textContent=`✅ Synced at ${new Date(res.syncedAt).toLocaleTimeString()}`;
+    const g=document.getElementById('gistIdInput');if(g)g.value=res.gistId;
+    showToast('Config synced to GitHub Gist! ☁️','success');
+  }catch(err){showToast('Gist sync failed: '+err.message,'error');}
+  finally{btn.disabled=false;btn.textContent='☁️ Sync to Gist';}
+});
+document.getElementById('gistRestoreBtn')?.addEventListener('click',async()=>{
+  const gistId=document.getElementById('gistIdInput')?.value.trim();
+  if(!gistId){showToast('Enter a Gist ID first','warn');return;}
+  const btn=document.getElementById('gistRestoreBtn');btn.disabled=true;btn.textContent='Restoring...';
+  try{
+    const res=await api('/api/config/restore-from-gist',{method:'POST',body:JSON.stringify({gistId})});
+    showToast(`✅ Config restored — ${res.restored.roots.length} roots`,'success');
+    await loadConfig();await scanRepos();
+  }catch(err){showToast('Restore failed: '+err.message,'error');}
+  finally{btn.disabled=false;btn.textContent='⬇️ Restore from Gist';}
+});
+
+// ─── Activity / Team Tab ──────────────────────────────────────────────────────
+const EVENT_LABELS={'repo_scan':'🔍 Repo Scan','ai_sync':'🤖 AI Sync','ai_review':'🔍 AI Review','terminal_open':'💻 Terminal','search':'🔎 Search','standup':'📋 Standup','clone':'📥 Clone','branch_op':'🌿 Branch Op','gist_sync':'☁️ Gist Sync','gist_restore':'⬇️ Gist Restore'};
+async function loadTeamTab(){
+  try{
+    const res=await api('/api/activity');
+    const stats=res.weeklyStats||{},activity=res.activity||[];
+    const statCards=[{label:'AI Syncs',key:'ai_sync',icon:'🤖'},{label:'AI Reviews',key:'ai_review',icon:'🔍'},{label:'Searches',key:'search',icon:'🔎'},{label:'Terminal Sessions',key:'terminal_open',icon:'💻'},{label:'Scans',key:'repo_scan',icon:'📡'},{label:'Branch Ops',key:'branch_op',icon:'🌿'}];
+    const statsEl=document.getElementById('activityStats');
+    if(statsEl)statsEl.replaceChildren(...statCards.map(c=>{const el=document.createElement('article');el.className='metric';el.innerHTML=`<span>${c.icon} ${c.label}</span><strong>${stats[c.key]||0}</strong>`;return el;}));
+    const logEl=document.getElementById('activityLog');
+    if(logEl){
+      if(!activity.length){logEl.innerHTML='<span class="muted">No activity recorded yet.</span>';}else{
+        logEl.replaceChildren(...activity.map(entry=>{
+          const d=document.createElement('div');d.className='timeline-item';
+          d.innerHTML=`<div class="timeline-meta"><strong>${escapeHtml(EVENT_LABELS[entry.event]||entry.event)}</strong> <span class="muted">${relativeTime(entry.ts||0)}</span></div>${entry.repoName?`<div class="muted" style="font-size:0.82rem;">${escapeHtml(entry.repoName)}</div>`:''}`;return d;
+        }));
+      }
+    }
+  }catch(err){console.warn('Activity fetch failed:',err);}
+}
+document.querySelectorAll('.tab-btn[data-target="tab-team"]').forEach(b=>b.addEventListener('click',loadTeamTab));
+
+// ─── Ecosystem Tab ────────────────────────────────────────────────────────────
+function populateEcosystemTab(){
+  if(!state.repos||!state.repos.length)return;
+  const repos=state.repos.filter(r=>!r.isCloud);
+  const frameworkMap=new Map();
+  for(const repo of repos)for(const lang of(repo.languages||[]))frameworkMap.set(lang.name,(frameworkMap.get(lang.name)||0)+1);
+  const frameworkEl=document.getElementById('frameworkList');
+  if(frameworkEl){
+    const sorted=[...frameworkMap.entries()].sort((a,b)=>b[1]-a[1]);
+    frameworkEl.replaceChildren(...sorted.map(([name,count])=>{
+      const p=document.createElement('div');
+      p.style.cssText='display:inline-flex;align-items:center;gap:6px;background:color-mix(in srgb,var(--accent) 12%,var(--bg-card));border:1px solid color-mix(in srgb,var(--accent) 25%,transparent);border-radius:99px;padding:6px 14px;font-size:0.85rem;font-weight:600;';
+      p.innerHTML=`<span>${escapeHtml(name)}</span><span style="color:var(--accent);">${count}</span>`;return p;
+    }));
+    if(!sorted.length)frameworkEl.innerHTML='<span class="muted">Scan repos to see framework usage.</span>';
+  }
+  const withPkg=repos.filter(r=>r.scripts!==null).length,highRisk=repos.filter(r=>r.health<60).length;
+  const metricsEl=document.getElementById('ecosystemMetrics');
+  if(metricsEl){
+    const items=[['Node.js Repos',withPkg],['High Risk Repos',highRisk],['Total Tracked',repos.length],['Languages Detected',frameworkMap.size]];
+    metricsEl.replaceChildren(...items.map(([label,value])=>{const c=document.createElement('article');c.className='metric';c.innerHTML=`<span>${label}</span><strong>${value}</strong>`;return c;}));
+  }
+}
+document.querySelectorAll('.tab-btn[data-target="tab-ecosystem"]').forEach(b=>b.addEventListener('click',populateEcosystemTab));
+
+// ─── Star Nudge Banner ────────────────────────────────────────────────────────
+function maybeShowStarNudge(){
+  if(localStorage.getItem('rt_star_dismissed'))return;
+  const count=parseInt(localStorage.getItem('rt_scan_count')||'0',10)+1;
+  localStorage.setItem('rt_scan_count',String(count));
+  if(count===3)setTimeout(()=>document.getElementById('starNudgeBanner')?.classList.remove('hidden'),2000);
+}
+
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 (async () => {
-  // Restore saved theme
   const savedTheme = localStorage.getItem('repo_theme');
   if (savedTheme) document.documentElement.setAttribute('data-theme', savedTheme);
-
-  // M5: Show a loading indicator while the initial config fetch is in-flight
   el.scanMeta.textContent = 'Connecting to server...';
-
   const ok = await loadConfig();
-  if (!ok) return; // auth dialog is now showing
-
+  if (!ok) return;
+  // Pre-populate Gist ID field if already synced
+  if (state.config?.gistSyncId) {
+    const g = document.getElementById('gistIdInput'); if (g) g.value = state.config.gistSyncId;
+    const gs = document.getElementById('gistSyncStatus');
+    if (gs && state.config.lastGistSync) gs.textContent = `Last synced: ${new Date(state.config.lastGistSync).toLocaleString()}`;
+  }
   if (!state.config.onboardingComplete) {
-    // New user (or user who skipped before this flag existed) — show wizard
     await showWizard();
   } else {
-    // Returning user — show dashboard and scan
     el.scanMeta.textContent = 'Ready. Click Scan repos to refresh.';
     el.wizard.classList.remove('active');
     el.shell.style.display = '';
     await scanRepos();
+    maybeShowStarNudge();
   }
 })();
 
 // Close custom dropdowns when clicking outside
 document.addEventListener('click', e => {
   if (!e.target.closest('.quick-actions-dropdown')) {
-    document.querySelectorAll('.quick-actions-dropdown[open]').forEach(dropdown => {
-      dropdown.removeAttribute('open');
+    document.querySelectorAll('.quick-actions-dropdown[open]').forEach(d => d.removeAttribute('open'));
+  }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// INVESTOR-READY FEATURES — Sprint 1-4
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ── Sprint 1: Pro License ──────────────────────────────────────────────────────
+function updateLicenseUI() {
+  // Use licenseTier from config (set by server during activation) — no key-format guessing needed
+  const hasKey  = Boolean(state.config?.licenseKeySet);
+  const tier    = state.config?.licenseTier || state.tier || 'free';
+  const isTeam  = tier === 'team';
+  const tierLabel = document.getElementById('licenseTierLabel');
+  const activeRow = document.getElementById('licenseActiveRow');
+  const input     = document.getElementById('licenseKeyInput');
+  if (activeRow)  activeRow.classList.toggle('hidden', !hasKey);
+  if (tierLabel)  tierLabel.textContent = isTeam ? 'Team' : 'Pro';
+  if (input && !hasKey) input.value = '';
+  // Also update state.tier for feature gates
+  if (hasKey) state.tier = tier;
+}
+
+document.getElementById('activateLicenseBtn')?.addEventListener('click', async () => {
+  const input = document.getElementById('licenseKeyInput');
+  const key = input?.value?.trim();
+  if (!key) { showToast('Enter a license key first', 'error'); return; }
+  const btn = document.getElementById('activateLicenseBtn');
+  btn.textContent = 'Activating…'; btn.disabled = true;
+  try {
+    const res = await api('/api/license', { method: 'POST', body: JSON.stringify({ key }) });
+    // Update state with tier returned from server (set by LemonSqueezy API)
+    state.tier = res.tier || 'pro';
+    state.config = {
+      ...state.config,
+      licenseKeySet: true,
+      licenseKey: '••• (saved)',
+      licenseTier: res.tier || 'pro',
+      licenseInstanceId: res.instanceId || null,
+    };
+    updateLicenseUI();
+    showToast(`✅ ${res.tier === 'team' ? 'Team' : 'Pro'} license activated on this machine!`, 'success');
+  } catch (err) { showToast(`❌ ${err.message}`, 'error'); }
+  finally { btn.textContent = 'Activate'; btn.disabled = false; }
+});
+
+document.getElementById('revokeLicenseBtn')?.addEventListener('click', async () => {
+  if (!confirm('Remove license key from this machine?\n\nYour activation slot will be freed so you can activate on another machine.')) return;
+  const btn = document.getElementById('revokeLicenseBtn');
+  btn.textContent = 'Deactivating…'; btn.disabled = true;
+  try {
+    await api('/api/license', { method: 'DELETE' });
+    state.tier = 'free';
+    state.config = { ...state.config, licenseKeySet: false, licenseKey: '', licenseTier: 'free', licenseInstanceId: null };
+    updateLicenseUI();
+    showToast('License deactivated. Activation slot freed — you can now activate on another machine.', 'info');
+  } catch (err) { showToast(`❌ ${err.message}`, 'error'); }
+  finally { btn.textContent = 'Remove License'; btn.disabled = false; }
+});
+
+// ── Sprint 2: Team Status + Banner ─────────────────────────────────────────────
+async function checkTeamStatus() {
+  try {
+    const status = await api('/api/team/status');
+    const banner = document.getElementById('teamModeBanner');
+    const urlEl = document.getElementById('teamModeUrl');
+    const copyBtn = document.getElementById('copyTeamUrlBtn');
+
+    if (status.teamMode && status.teamUrl) {
+      if (banner) { banner.classList.remove('hidden'); }
+      if (urlEl) urlEl.textContent = status.teamUrl;
+      copyBtn?.addEventListener('click', () => {
+        navigator.clipboard.writeText(status.teamUrl).then(() => showToast('Team URL copied!', 'success'));
+      }, { once: true });
+    }
+
+    // Refresh team tokens list in settings
+    renderTeamTokens(status);
+  } catch { /* silent — server might be in solo mode */ }
+}
+
+async function generateTeamToken() {
+  const label = prompt('Label for this token (e.g. teammate\'s name):');
+  if (!label) return;
+  try {
+    const res = await api('/api/team/token', { method: 'POST', body: JSON.stringify({ label }) });
+    showToast(`✅ Token generated for ${res.token.label}`, 'success');
+    // Show token in a prompt so user can copy it
+    const tokenStr = `${res.token.token}`;
+    const msg = `Share this token with ${res.token.label}:\n\n${tokenStr}\n\n(Copy it now — it won't be shown again)`;
+    alert(msg);
+    await checkTeamStatus();
+  } catch (err) { showToast(`❌ ${err.message}`, 'error'); }
+}
+
+function renderTeamTokens(status) {
+  const list = document.getElementById('teamTokensList');
+  const empty = document.getElementById('teamTokensEmpty');
+  if (!list) return;
+  list.innerHTML = '';
+  // We can only show count/label, not the raw token (stored server-side)
+  if (!status?.tokenCount) {
+    if (empty) empty.classList.remove('hidden');
+    return;
+  }
+  if (empty) empty.classList.add('hidden');
+  // Token details come from /api/config teamTokens field — show labels
+  const tokens = state.config?.teamTokens || [];
+  tokens.forEach((t, i) => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #1e293b;';
+    row.innerHTML = `<span>${escapeHtml(t.label)} <span class="muted" style="font-size:0.75rem;">${relativeTime(Math.floor(new Date(t.createdAt||0).getTime()/1000))}</span></span>
+      <button class="ghost" style="padding:2px 8px;font-size:0.75rem;color:var(--danger);" data-token="${escapeAttribute(t.token)}">Revoke</button>`;
+    row.querySelector('button')?.addEventListener('click', async (e) => {
+      await api('/api/team/token', { method: 'DELETE', body: JSON.stringify({ token: e.target.dataset.token }) });
+      // Update local state
+      state.config.teamTokens = state.config.teamTokens?.filter(tok => tok.token !== e.target.dataset.token);
+      renderTeamTokens({ tokenCount: state.config.teamTokens?.length });
+      showToast('Token revoked.', 'info');
+    });
+    list.appendChild(row);
+  });
+}
+
+document.getElementById('generateTeamTokenBtn')?.addEventListener('click', generateTeamToken);
+
+// ── Sprint 3: Export Dashboard ──────────────────────────────────────────────────
+document.getElementById('exportDashboardBtn')?.addEventListener('click', async () => {
+  const btn = document.getElementById('exportDashboardBtn');
+  btn.textContent = '⏳ Exporting...'; btn.disabled = true;
+  try {
+    const res = await fetch('/export', { credentials: 'include' });
+    if (!res.ok) throw new Error(await res.text());
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `repotracker-${new Date().toISOString().slice(0,10)}.html`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('✅ Dashboard exported!', 'success');
+  } catch (err) { showToast(`Export failed: ${err.message}`, 'error'); }
+  finally { btn.textContent = '📤 Export'; btn.disabled = false; }
+});
+
+// ── Sprint 4: Ping Opt-In (wired from wizard) ──────────────────────────────────
+// The ping checkbox is in wizard step 1 — we save the preference when wizard completes.
+// The actual ping happens server-side on boot. We just need to record the opt-in.
+const _wizPingCheck = document.getElementById('wizPingOptIn');
+if (_wizPingCheck) {
+  // Pre-check if already opted in (page reload after wizard)
+  _wizPingCheck.checked = state.config?.pingOptIn === true;
+}
+
+// ── Boot: check team status on load ───────────────────────────────────────────
+checkTeamStatus();
+updateLicenseUI();
+
+// ── UPGRADE MODAL WIRING ──────────────────────────────────────────────────────
+const FEATURE_META = {
+  ai_review:  { name: 'AI Code Reviewer',   desc: 'Analyze diffs for bugs & security issues before committing.',  tier: 'Pro',  price: '$29' },
+  ai_sync:    { name: 'AI Git Sync',         desc: 'Generate perfect commit messages with Gemini AI.',              tier: 'Pro',  price: '$29' },
+  gist_sync:  { name: 'Cloud Config Sync',   desc: 'Sync your settings to a private GitHub Gist across machines.', tier: 'Pro',  price: '$29' },
+  badges:     { name: 'Health Badges',        desc: 'Embed live repo health badges in any README.',                  tier: 'Pro',  price: '$29' },
+  export:     { name: 'Dashboard Export',     desc: 'Download a self-contained HTML snapshot of your dashboard.',   tier: 'Pro',  price: '$29' },
+  pomodoro:   { name: 'Pomodoro Timer',       desc: 'Deep-work focus sessions with desktop notifications.',          tier: 'Pro',  price: '$29' },
+  team_mode:  { name: 'Team Mode',            desc: 'Share your dashboard with teammates over your local network.',  tier: 'Team', price: '$79' },
+  lan_dashboard: { name: 'LAN Dashboard',     desc: 'Broadcast your dashboard to up to 5 teammates on LAN.',       tier: 'Team', price: '$79' },
+  team_standup:  { name: 'Team Standup',      desc: 'AI-generated standup visible to your whole team.',              tier: 'Team', price: '$79' },
+};
+
+function showUpgradeModal(feature, upgradeUrl) {
+  const modal = document.getElementById('upgradeModal');
+  if (!modal) return;
+
+  const meta = FEATURE_META[feature] || { name: 'This feature', desc: 'Unlock powerful developer tools.', tier: 'Pro', price: '$29' };
+  const isTeam = meta.tier === 'Team';
+  const buyUrl = upgradeUrl || (isTeam ? 'https://repotracker.lemonsqueezy.com/buy/team' : 'https://repotracker.lemonsqueezy.com/buy/pro');
+
+  // Update modal header dynamically
+  const titleEl = document.getElementById('upgradeModalTitle');
+  const descEl  = document.getElementById('upgradeModalDesc');
+  const priceEl = document.getElementById('upgradeModalPrice');
+  const tierEl  = document.getElementById('upgradeModalTier');
+  const buyBtn  = document.getElementById('upgradeModalBtn');
+  const iconEl  = document.getElementById('upgradeModalIcon');
+
+  if (titleEl) titleEl.textContent = `Upgrade to ${meta.tier}`;
+  if (descEl)  descEl.textContent  = `${meta.name} — ${meta.desc}`;
+  if (priceEl) priceEl.textContent = `${meta.price} one-time`;
+  if (tierEl)  tierEl.textContent  = meta.tier;
+  if (buyBtn)  buyBtn.href         = buyUrl;
+  if (iconEl)  iconEl.textContent  = isTeam ? '👥' : '✨';
+
+  // Highlight the relevant feature row
+  document.querySelectorAll('.upgrade-feature-row').forEach(row => {
+    row.style.background = row.dataset.feature === feature
+      ? 'color-mix(in srgb,var(--accent) 14%,transparent)'
+      : 'color-mix(in srgb,var(--accent) 6%,transparent)';
+    row.style.borderColor = row.dataset.feature === feature
+      ? 'color-mix(in srgb,var(--accent) 40%,transparent)'
+      : 'color-mix(in srgb,var(--accent) 15%,transparent)';
+  });
+
+  modal.showModal();
+}
+
+document.getElementById('upgradeModalClose')?.addEventListener('click', () => {
+  document.getElementById('upgradeModal')?.close();
+});
+
+// Global handler: intercept any unhandled requiresUpgrade errors
+window.addEventListener('unhandledrejection', (e) => {
+  if (e.reason?.requiresUpgrade) {
+    e.preventDefault();
+    showUpgradeModal(e.reason.feature, e.reason.upgradeUrl);
+  }
+});
+
+// Export showUpgradeModal globally so any catch block can call it
+window.showUpgradeModal = showUpgradeModal;
+
+// ══════════════════════════════════════════════════════════════════════════════
+// FIX #5 — UX: Keyboard shortcuts, team self-test, better error handling
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ── Keyboard Shortcuts ─────────────────────────────────────────────────────────
+document.addEventListener('keydown', (e) => {
+  // ? = show shortcuts help
+  if (e.key === '?' && !e.target.matches('input,textarea,select')) {
+    showToast(
+      '⌨️  Shortcuts: S=Scan · F=Filter · T=Terminal · B=Branch · ?=Help',
+      'info', 5000
+    );
+    return;
+  }
+  if (e.target.matches('input,textarea,select,dialog *')) return;
+  // S = scan repos
+  if (e.key === 's' || e.key === 'S') { scanRepos(); return; }
+  // F = focus filter
+  if (e.key === 'f' || e.key === 'F') {
+    const f = document.getElementById('filterInput') || document.querySelector('input[type="search"]');
+    f?.focus(); return;
+  }
+  // Escape = close any open dialog
+  if (e.key === 'Escape') {
+    document.querySelectorAll('dialog[open]').forEach(d => d.close());
+  }
+});
+
+// ── Team Mode Self-Test ─────────────────────────────────────────────────────────
+// When Team Mode banner is shown, do a quick connectivity test and update indicator
+async function runTeamSelfTest(teamUrl) {
+  const banner = document.getElementById('teamModeBanner');
+  if (!banner) return;
+  try {
+    const res = await fetch(`${teamUrl}/api/team/ping`, { signal: AbortSignal.timeout(3000) });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.ok) {
+        banner.style.background = 'linear-gradient(90deg,#065f46,#047857)';
+        showToast('✅ Team Mode active — teammates can connect!', 'success');
+      }
+    }
+  } catch {
+    banner.style.background = 'linear-gradient(90deg,#7f1d1d,#991b1b)';
+    showToast('⚠️ Team URL unreachable — check your firewall or LAN settings', 'error', 6000);
+  }
+}
+
+// Augment checkTeamStatus to also run self-test
+const _origCheckTeamStatus = checkTeamStatus;
+// eslint-disable-next-line no-global-assign
+window._teamSelfTestRan = false;
+const _wrappedCheckTeam = async () => {
+  try {
+    const status = await api('/api/team/status');
+    if (status.teamMode && status.teamUrl && !window._teamSelfTestRan) {
+      window._teamSelfTestRan = true;
+      setTimeout(() => runTeamSelfTest(status.teamUrl), 1500);
+    }
+  } catch {}
+};
+_wrappedCheckTeam();
+
+// ── Better error handler for Pro gate catches ──────────────────────────────────
+// Any catch block that does showToast(err.message) should also check for upgrade
+function handleApiError(err, defaultMsg) {
+  if (err.requiresUpgrade) {
+    showUpgradeModal(err.feature, err.upgradeUrl);
+    return;
+  }
+  showToast(err.message || defaultMsg, 'error');
+}
+window.handleApiError = handleApiError;
+
+// Clear "Unknown API route" error if present on boot
+if (el.scanMeta && el.scanMeta.textContent.includes('Unknown API route')) {
+    el.scanMeta.textContent = 'Ready to scan.';
+}
+
+// --- Dropdown Menu Logic ---
+document.addEventListener('DOMContentLoaded', () => {
+  const menuToggleBtn = document.getElementById('menuToggleBtn');
+  const dropdownMenu = document.getElementById('dropdownMenu');
+  
+  if (menuToggleBtn && dropdownMenu) {
+    menuToggleBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      dropdownMenu.classList.toggle('visible');
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!dropdownMenu.contains(e.target) && !menuToggleBtn.contains(e.target)) {
+        dropdownMenu.classList.remove('visible');
+      }
     });
   }
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+  const navUpgradeBtn = document.getElementById('navUpgradeBtn');
+  if (navUpgradeBtn && typeof showUpgradeModal === 'function') {
+    navUpgradeBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      showUpgradeModal();
+    });
+  }
+});
+// ── Navbar Hamburger Dropdown ─────────────────────────────────────────────
+(function() {
+  const menuBtn = document.getElementById('menuToggleBtn');
+  const menu    = document.getElementById('dropdownMenu');
+  const upgradeModal = document.getElementById('upgradeModal');
+
+  if (!menuBtn || !menu) return;
+
+  menuBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    menu.classList.toggle('open');
+  });
+
+  // Close when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!menu.contains(e.target) && e.target !== menuBtn) {
+      menu.classList.remove('open');
+    }
+  });
+
+  // Close when pressing Escape
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') menu.classList.remove('open');
+  });
+
+  // Close menu after any item click
+  menu.addEventListener('click', () => {
+    setTimeout(() => menu.classList.remove('open'), 120);
+  });
+
+  // Wire up Pro upgrade modal
+  const upgradeBtn = document.getElementById('navUpgradeBtn');
+  if (upgradeBtn && upgradeModal) {
+    upgradeBtn.addEventListener('click', () => upgradeModal.showModal());
+  }
+
+  // Wire up license activation
+  const activateBtn = document.getElementById('activateLicenseBtn');
+  const licenseInput = document.getElementById('licenseKeyInput');
+  const licenseError = document.getElementById('licenseKeyError');
+  if (activateBtn && licenseInput) {
+    activateBtn.addEventListener('click', async () => {
+      const key = licenseInput.value.trim();
+      if (!key) { licenseError.textContent = 'Please enter a license key.'; licenseError.style.display = 'block'; return; }
+      activateBtn.disabled = true;
+      activateBtn.textContent = 'Activating...';
+      try {
+        const res = await fetch('/api/license', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key }) });
+        const data = await res.json();
+        if (data.ok) {
+          licenseError.style.display = 'none';
+          activateBtn.textContent = '✓ Activated!';
+          setTimeout(() => upgradeModal.close(), 1200);
+        } else {
+          licenseError.textContent = data.error || 'Invalid license key.';
+          licenseError.style.display = 'block';
+          activateBtn.disabled = false;
+          activateBtn.textContent = 'Activate License';
+        }
+      } catch {
+        licenseError.textContent = 'Network error — please try again.';
+        licenseError.style.display = 'block';
+        activateBtn.disabled = false;
+        activateBtn.textContent = 'Activate License';
+      }
+    });
+  }
+})();
+// ── Team Tab Live Status ──────────────────────────────────────────────────
+(function pollTeamStatus() {
+  const dot  = document.getElementById('teamStatusDot');
+  const text = document.getElementById('teamStatusText');
+  const row  = document.getElementById('teamUrlRow');
+  const inp  = document.getElementById('teamShareUrl');
+  const copyBtn = document.getElementById('copyTeamShareUrl');
+
+  async function check() {
+    try {
+      const res = await fetch('/api/team/ping', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source: 'self-check' }) });
+      if (res.ok) {
+        if (dot)  { dot.style.background = '#22c55e'; }
+        if (text) { text.innerHTML = '<strong style="color:#22c55e">Team Mode Active</strong> — sharing on your network'; }
+        if (row)  { row.style.display = 'flex'; row.classList.remove('hidden'); }
+        if (inp)  { inp.value = location.origin; }
+      } else { setInactive(); }
+    } catch { setInactive(); }
+  }
+
+  function setInactive() {
+    if (dot)  { dot.style.background = 'var(--muted)'; }
+    if (text) { text.innerHTML = 'Not active — start with <strong>npm run team</strong>'; }
+    if (row)  { row.classList.add('hidden'); }
+  }
+
+  if (copyBtn && inp) {
+    copyBtn.addEventListener('click', () => {
+      navigator.clipboard.writeText(inp.value).then(() => {
+        copyBtn.textContent = 'Copied!';
+        setTimeout(() => { copyBtn.textContent = 'Copy URL'; }, 2000);
+      });
+    });
+  }
+
+  check();
+  setInterval(check, 30000);
+})();
+
+// ── License Status on Load ────────────────────────────────────────────────
+(async function checkLicenseStatus() {
+  try {
+    const res  = await fetch('/api/license');
+    const data = await res.json();
+    // Prefer licenseTier from GET /api/license (authoritative, set during activation)
+    const tier = data.tier || 'free';
+    state.tier = tier;
+    // Merge into state.config so updateLicenseUI() has access to licenseTier
+    if (state.config) {
+      state.config.licenseTier        = tier;
+      state.config.licenseInstanceId  = data.instanceId || null;
+      state.config.licenseActivatedAt = data.activatedOn || null;
+    }
+    const btn = document.getElementById('navUpgradeBtn');
+    if (btn && tier !== 'free') {
+      btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+        ${tier === 'team' ? '✓ Team Active' : '✓ Pro Active'}`;
+      btn.style.color = '#22c55e';
+    }
+    updateLicenseUI();
+  } catch { /* silent — user not yet authed */ }
+})();
+// ── Wizard Token Type Tab Switcher ────────────────────────────────────────
+(function() {
+  const tabs = document.querySelectorAll('.wiz-token-tab');
+  const panelClassic = document.getElementById('wizPanelClassic');
+  const panelFine    = document.getElementById('wizPanelFinegrained');
+  const tokenInput   = document.getElementById('wizGhToken');
+
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      tabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+
+      const isClassic = tab.dataset.tab === 'classic';
+      panelClassic.classList.toggle('hidden', !isClassic);
+      panelFine.classList.toggle('hidden', isClassic);
+
+      // Update placeholder to match chosen token type
+      if (tokenInput) {
+        tokenInput.placeholder = isClassic ? 'ghp_...' : 'github_pat_...';
+      }
+
+      // Clear any previous status
+      const status = document.getElementById('wizTokenStatus');
+      if (status) { status.textContent = ''; status.className = 'wizard-token-status'; }
+    });
+  });
+})();
+
+// ══════════════════════════════════════════════════════════════════════════════
+// FEATURE 2 — GitHub Repository Browser (Ecosystem Tab)
+// ══════════════════════════════════════════════════════════════════════════════
+
+let _ghRepos = [];       // all repos from GitHub
+let _localPaths = [];    // repo paths scanned locally (basenames for comparison)
+
+/** Render one GitHub repo row */
+function renderGhRepoRow(repo) {
+  // Determine if this repo is already cloned locally
+  const isLocal = _localPaths.some(p =>
+    p.toLowerCase() === repo.name.toLowerCase() ||
+    p.toLowerCase() === repo.full_name.toLowerCase().replace('/', '_')
+  );
+
+  const row = document.createElement('div');
+  row.dataset.repoName = repo.full_name.toLowerCase();
+  row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:11px 20px;border-bottom:1px solid var(--border);transition:background 0.1s;';
+  row.addEventListener('mouseenter', () => row.style.background = 'var(--panel-strong)');
+  row.addEventListener('mouseleave', () => row.style.background = '');
+
+  const left = document.createElement('div');
+  left.style.cssText = 'display:flex;align-items:center;gap:10px;min-width:0;flex:1;';
+
+  // Visibility icon
+  const visIcon = repo.private
+    ? `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" title="Private"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`
+    : `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" title="Public"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`;
+
+  const info = document.createElement('div');
+  info.style.cssText = 'min-width:0;flex:1;';
+  info.innerHTML = `
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+      ${visIcon}
+      <a href="${repo.html_url}" target="_blank" rel="noopener" style="font-size:13.5px;font-weight:600;color:var(--primary);text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:280px;" title="${repo.full_name}">${repo.full_name}</a>
+      ${repo.language ? `<span style="font-size:11px;padding:1px 7px;border-radius:99px;background:var(--panel-strong);color:var(--muted);border:1px solid var(--border);">${repo.language}</span>` : ''}
+      ${repo.fork ? `<span style="font-size:11px;padding:1px 7px;border-radius:99px;background:#fef3c7;color:#92400e;">fork</span>` : ''}
+    </div>
+    ${repo.description ? `<p style="font-size:12px;color:var(--muted);margin:3px 0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:400px;">${repo.description}</p>` : ''}
+  `;
+
+  left.appendChild(info);
+
+  const right = document.createElement('div');
+  right.style.cssText = 'display:flex;align-items:center;gap:8px;flex-shrink:0;margin-left:12px;';
+
+  // Star count
+  if (repo.stargazers_count > 0) {
+    right.innerHTML += `<span style="font-size:11.5px;color:var(--muted);display:flex;align-items:center;gap:3px;">⭐ ${repo.stargazers_count.toLocaleString()}</span>`;
+  }
+
+  if (isLocal) {
+    const badge = document.createElement('span');
+    badge.style.cssText = 'font-size:11.5px;padding:3px 10px;border-radius:99px;background:#d1fae5;color:#065f46;font-weight:600;white-space:nowrap;';
+    badge.textContent = '✓ Cloned';
+    right.appendChild(badge);
+  } else {
+    const cloneBtn = document.createElement('button');
+    cloneBtn.className = 'btn-sm';
+    cloneBtn.style.cssText = 'padding:5px 12px;font-size:12px;white-space:nowrap;';
+    cloneBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Clone`;
+    cloneBtn.addEventListener('click', () => {
+      // Pre-fill clone dialog and open it
+      const roots = state.config?.roots || [];
+      if (!roots.length) { showToast('Configure at least one folder in Settings first.', 'warn'); return; }
+      el.cloneDestSelect.innerHTML = roots.map(r => `<option value="${r}">${r}</option>`).join('');
+      el.cloneDialog.showModal();
+      el.confirmCloneButton.onclick = async () => {
+        const dest = el.cloneDestSelect.value;
+        if (!dest) return;
+        el.confirmCloneButton.disabled = true;
+        el.confirmCloneButton.textContent = 'Cloning…';
+        try {
+          const res = await api('/api/repos/clone', {
+            method: 'POST',
+            body: JSON.stringify({ root: dest, url: repo.clone_url, name: repo.name }),
+          });
+          el.cloneDialog.close();
+          openShelby(`Clone ${repo.name}`, res.taskId);
+          // Mark as cloned
+          _localPaths.push(repo.name);
+          cloneBtn.replaceWith((() => {
+            const b = document.createElement('span');
+            b.style.cssText = 'font-size:11.5px;padding:3px 10px;border-radius:99px;background:#d1fae5;color:#065f46;font-weight:600;';
+            b.textContent = '✓ Cloning…';
+            return b;
+          })());
+        } catch (err) {
+          showToast(`Clone failed: ${err.message}`, 'error');
+          el.confirmCloneButton.disabled = false;
+          el.confirmCloneButton.textContent = 'Clone';
+        }
+      };
+    });
+    right.appendChild(cloneBtn);
+  }
+
+  row.appendChild(left);
+  row.appendChild(right);
+  return row;
+}
+
+/** Render the GitHub repo list, applying search filter */
+function renderGhRepoList(filter = '') {
+  const list = document.getElementById('ghRepoList');
+  const badge = document.getElementById('ghRepoBadge');
+  if (!list) return;
+
+  const q = filter.toLowerCase().trim();
+  const filtered = q ? _ghRepos.filter(r => r.full_name.toLowerCase().includes(q) || (r.description || '').toLowerCase().includes(q)) : _ghRepos;
+
+  list.innerHTML = '';
+  if (!filtered.length) {
+    list.innerHTML = `<div style="padding:32px;text-align:center;"><p class="muted" style="font-size:13px;">No repositories match "${filter}"</p></div>`;
+    return;
+  }
+
+  const frag = document.createDocumentFragment();
+  filtered.forEach(r => frag.appendChild(renderGhRepoRow(r)));
+  list.appendChild(frag);
+
+  if (badge) {
+    badge.style.display = '';
+    const clonedCount = _ghRepos.filter(r => _localPaths.some(p => p.toLowerCase() === r.name.toLowerCase())).length;
+    badge.textContent = `${_ghRepos.length} repos · ${clonedCount} cloned`;
+  }
+}
+
+/** Load GitHub repos from API and render */
+async function loadGhRepos(forceRefresh = false) {
+  const loading = document.getElementById('ghRepoLoading');
+  const empty   = document.getElementById('ghRepoEmpty');
+  const errEl   = document.getElementById('ghRepoError');
+  const list    = document.getElementById('ghRepoList');
+  if (!list) return;
+
+  if (loading) loading.style.display = 'block';
+  if (empty)   empty.style.display = 'none';
+  if (errEl)   errEl.style.display = 'none';
+  list.innerHTML = '';
+
+  try {
+    const repos = await api('/api/github/repos');
+    _ghRepos = repos.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+
+    // Build list of locally known repo names from current state
+    _localPaths = (state.repos || []).map(r => r.name);
+
+    if (loading) loading.style.display = 'none';
+    renderGhRepoList(document.getElementById('ghRepoSearch')?.value || '');
+  } catch (err) {
+    if (loading) loading.style.display = 'none';
+    if (err.message?.toLowerCase().includes('pat') || err.message?.includes('401')) {
+      if (empty) empty.style.display = 'block';
+    } else {
+      if (errEl) { errEl.style.display = 'block'; errEl.textContent = `⚠ ${err.message}`; }
+    }
+  }
+}
+
+// Wire search filter
+document.getElementById('ghRepoSearch')?.addEventListener('input', e => {
+  renderGhRepoList(e.target.value);
+});
+
+// Wire refresh button
+document.getElementById('ghRepoRefreshBtn')?.addEventListener('click', () => loadGhRepos(true));
+
+// Load when Ecosystem tab becomes active
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (btn.dataset.target === 'tab-ecosystem' && _ghRepos.length === 0) {
+      loadGhRepos();
+    }
+  });
 });

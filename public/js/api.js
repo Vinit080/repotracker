@@ -15,6 +15,20 @@ export async function api(path, options = {}) {
     throw err;
   }
 
+  // 403 with requiresUpgrade = show the upgrade modal, not a generic error toast
+  if (response.status === 403) {
+    let body = {};
+    try { body = await response.json(); } catch {}
+    if (body.requiresUpgrade) {
+      const err = new Error(body.error || 'Pro feature');
+      err.requiresUpgrade = true;
+      err.upgradeUrl = body.upgradeUrl || '';
+      err.feature = body.feature || '';
+      throw err;
+    }
+    throw new Error(body.error || `Forbidden (403)`);
+  }
+
   if (!response.ok) {
     let msg = `Request failed: ${response.status}`;
     try { const body = await response.json(); if (body.error) msg = body.error; } catch {}
@@ -23,3 +37,4 @@ export async function api(path, options = {}) {
 
   return response.json();
 }
+

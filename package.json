@@ -1,11 +1,32 @@
 {
   "name": "repotracker",
-  "version": "0.1.0",
+  "version": "0.2.0",
+  "description": "Intelligent local Git repository manager with AI-powered commit messages, health scoring, visual branch management, and an integrated terminal.",
+  "author": "Vinzone",
+  "license": "MIT",
+  "homepage": "https://github.com/Vinit080/repotracker#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Vinit080/repotracker.git"
+  },
+  "keywords": [
+    "git",
+    "repository",
+    "developer-tools",
+    "dashboard",
+    "ai",
+    "terminal",
+    "productivity",
+    "devtools"
+  ],
   "private": true,
   "type": "module",
   "scripts": {
     "start": "node src/server.js",
-    "dev": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "team": "cross-env REPOTRACKER_TEAM=1 node src/server.js",
+    "docker:build": "docker build -t repotracker .",
+    "docker:up": "docker compose up -d",
     "postinstall": "node src/setup-vendor.js"
   },
   "engines": {
@@ -13,9 +34,12 @@
   },
   "dependencies": {
     "node-pty": "^1.1.0",
-    "puppeteer": "^25.0.4",
     "ws": "^8.21.0",
     "xterm": "^5.3.0",
     "xterm-addon-fit": "^0.8.0"
+  },
+  "devDependencies": {
+    "cross-env": "^7.0.3",
+    "nodemon": "^3.1.0"
   }
 }

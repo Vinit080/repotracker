@@ -1,15 +1,36 @@
 import http from 'node:http';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { PORT, CONFIG_FILE, DATA_DIR, PUBLIC_DIR, MIME_TYPES, DEFAULT_CONFIG } from './constants.js';
+import os from 'node:os';
+import { fileURLToPath } from 'node:url';
+
+// ── Load .env file (no external dependency — Node built-ins only) ─────────────
+const __dirname_s = path.dirname(fileURLToPath(import.meta.url));
+const ENV_FILE = path.join(__dirname_s, '..', '.env');
+try {
+  const envRaw = await fs.readFile(ENV_FILE, 'utf8');
+  for (const line of envRaw.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const eqIdx = trimmed.indexOf('=');
+    if (eqIdx === -1) continue;
+    const key = trimmed.slice(0, eqIdx).trim();
+    const val = trimmed.slice(eqIdx + 1).trim();
+    if (key && val && !process.env[key]) process.env[key] = val; // don't override real env vars
+  }
+} catch { /* .env is optional — silently skip if missing */ }
+
+import { PORT, CONFIG_FILE, DATA_DIR, PUBLIC_DIR, MIME_TYPES, DEFAULT_CONFIG, TEAM_MODE, BIND_HOST, PING_URL, INSTALL_ID_FILE } from './constants.js';
 import { writeJsonIfMissing, sendText, sendJson, readJson, writeJson, normalizeConfig } from './utils.js';
 import { handleApi, handleUpgrade } from './routes/api.js';
 import { scanRepos } from './git.js';
 import { notifyDesktop } from './notify.js';
-import { applySecurityHeaders, isAllowedHost, isAllowedOrigin, checkRateLimit, cleanupExpired, hashPassword, isHashValid } from './security.js';
+import { applySecurityHeaders, isAllowedHost, isAllowedOrigin, checkRateLimit, cleanupExpired, hashPassword, isHashValid, loadSessions } from './security.js';
+import { generateDashboardExport } from './export.js';
+import { META_FILE } from './constants.js';
 
 // AI endpoints use the user's own API key — exempt from server-side rate limiting.
-const AI_PATHS = new Set(['/api/standup', '/api/repos/aisync']);
+const AI_PATHS = new Set(['/api/standup', '/api/repos/aisync', '/api/repos/ai-review']);
 
 async function ensureDataFiles() {
   await fs.mkdir(DATA_DIR, { recursive: true });
@@ -37,7 +58,7 @@ async function ensureDataFiles() {
     delete raw.appPassword;
     dirty = true;
   }
-  
+
   if (raw.appPasswordHash && !isHashValid(raw.appPasswordHash)) {
     console.warn('⚠️  Invalid password hash detected. Wiping it. You will need to setup a new password.');
     delete raw.appPasswordHash;
@@ -112,6 +133,27 @@ const server = http.createServer(async (request, response) => {
       return;
     }
 
+    // GET /export — generate and serve a self-contained HTML snapshot export
+    const pathname2 = new URL(request.url, 'http://localhost').pathname;
+    if (request.method === 'GET' && pathname2 === '/export') {
+      try {
+        const config = normalizeConfig(await readJson(CONFIG_FILE, DEFAULT_CONFIG));
+        const meta   = await readJson(META_FILE, {});
+        const scanData = await scanRepos(config, meta);
+        const html = generateDashboardExport(scanData, config);
+        const buf = Buffer.from(html, 'utf8');
+        response.writeHead(200, {
+          'Content-Type': 'text/html; charset=utf-8',
+          'Content-Disposition': `attachment; filename="repotracker-export-${new Date().toISOString().slice(0,10)}.html"`,
+          'Content-Length': buf.length,
+        });
+        response.end(buf);
+      } catch (err) {
+        sendText(response, 500, 'Export failed: ' + err.message);
+      }
+      return;
+    }
+
     await serveStatic(request, response);
   } catch (error) {
     if (error.code === 'PAYLOAD_TOO_LARGE') {
@@ -152,13 +194,59 @@ async function startBackgroundWorker() {
   setInterval(runWorkerCycle, 60 * 60 * 1000);
 }
 
-server.listen(PORT, async () => {
-  console.log(`RepoTracker running at http://localhost:${PORT}`);
+// ── LAN IP Detection (for Team Mode) ─────────────────────────────────────────
+function getLanIp() {
+  for (const ifaces of Object.values(os.networkInterfaces())) {
+    for (const iface of (ifaces || [])) {
+      if (iface.family === 'IPv4' && !iface.internal) return iface.address;
+    }
+  }
+  return null;
+}
+
+// ── Anonymous Install Ping (opt-in) ──────────────────────────────────────────
+async function sendInstallPing(config) {
+  if (!config?.pingOptIn) return; // only runs if user explicitly opted in
+  try {
+    const { readJson, writeJson } = await import('./utils.js');
+    const install = await readJson(INSTALL_ID_FILE, {});
+    if (install.pinged) return; // ping only once per installation
+    const { randomBytes } = await import('node:crypto');
+    const installId = install.id || randomBytes(16).toString('hex');
+    await fetch(PING_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: installId, version: '0.2.0', platform: process.platform }),
+      signal: AbortSignal.timeout(5000),
+    }).catch(() => {}); // silent fail — never crash on ping
+    await writeJson(INSTALL_ID_FILE, { id: installId, pinged: true, ts: Date.now() });
+  } catch { /* silent */ }
+}
+
+server.listen(PORT, BIND_HOST, async () => {
+  if (TEAM_MODE) {
+    const lanIp = getLanIp();
+    console.log('');
+    console.log('  ┌──────────────────────────────────────────────────┐');
+    console.log('  │  🚀 RepoTracker v0.2.0  —  TEAM MODE             │');
+    console.log(`  │  Solo:  http://localhost:${PORT}                    │`);
+    if (lanIp) console.log(`  │  Team:  http://${lanIp}:${PORT}             │`);
+    console.log('  └──────────────────────────────────────────────────┘');
+    console.log('');
+  } else {
+    console.log(`RepoTracker v0.2.0 running at http://localhost:${PORT}`);
+  }
   console.log(`Scanning roots from ${CONFIG_FILE}`);
-  await ensureDataFiles(); // M6: run once at boot
+  await ensureDataFiles();
+  await loadSessions();
+  // Fire-and-forget install ping if user opted in (never crashes server)
+  const { readJson: _rj, normalizeConfig: _nc } = await import('./utils.js');
+  const _cfg = _nc(await _rj(CONFIG_FILE, DEFAULT_CONFIG));
+  sendInstallPing(_cfg).catch(() => {});
   startBackgroundWorker();
-  setInterval(cleanupExpired, 5 * 60 * 1000); // M7: prune stale rate-limit + session entries every 5 min
+  setInterval(cleanupExpired, 5 * 60 * 1000);
 });
+
 
 server.on('error', (err) => {
   if (err.code === 'EADDRINUSE') {

@@ -223,6 +223,28 @@ export async function detectScripts(repoPath) {
     }
   } catch {}
 
+  // 5. Docker (Dockerfile + docker-compose)
+  try {
+    await fs.access(path.join(repoPath, 'Dockerfile'));
+    const repoName = path.basename(repoPath).toLowerCase().replace(/[^a-z0-9-]/g, '-');
+    scripts.push({ name: 'docker build', runner: 'docker', cmd: `docker build -t ${repoName} .` });
+    scripts.push({ name: 'docker run', runner: 'docker', cmd: `docker run --rm -it ${repoName}` });
+  } catch {}
+
+  try {
+    await fs.access(path.join(repoPath, 'docker-compose.yml'));
+    scripts.push({ name: 'compose up', runner: 'docker', cmd: 'docker compose up' });
+    scripts.push({ name: 'compose down', runner: 'docker', cmd: 'docker compose down' });
+  } catch {}
+
+  try {
+    await fs.access(path.join(repoPath, 'docker-compose.yaml'));
+    if (!scripts.find(s => s.cmd === 'docker compose up')) {
+      scripts.push({ name: 'compose up', runner: 'docker', cmd: 'docker compose up' });
+      scripts.push({ name: 'compose down', runner: 'docker', cmd: 'docker compose down' });
+    }
+  } catch {}
+
   return scripts.length ? scripts : null;
 }
 
