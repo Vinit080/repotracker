@@ -2054,27 +2054,71 @@ document.addEventListener('DOMContentLoaded', () => {
 })();
 
 // ── License Status on Load ────────────────────────────────────────────────
-(async function checkLicenseStatus() {
+async function checkLicenseStatus() {
   try {
-    const res  = await fetch('/api/license');
+    const res  = await fetch('/api/license/status');
+    if (!res.ok) return;
     const data = await res.json();
-    // Prefer licenseTier from GET /api/license (authoritative, set during activation)
     const tier = data.tier || 'free';
     state.tier = tier;
-    // Merge into state.config so updateLicenseUI() has access to licenseTier
+    
     if (state.config) {
-      state.config.licenseTier        = tier;
-      state.config.licenseInstanceId  = data.instanceId || null;
-      state.config.licenseActivatedAt = data.activatedOn || null;
+      state.config.licenseTier = tier;
     }
+    
     const btn = document.getElementById('navUpgradeBtn');
     if (btn && tier !== 'free') {
       btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-        ${tier === 'team' ? '✓ Team Active' : '✓ Pro Active'}`;
+        ${tier.toLowerCase() === 'team' ? '✓ Team Active' : '✓ Pro Active'}`;
       btn.style.color = '#22c55e';
     }
-    updateLicenseUI();
-  } catch { /* silent — user not yet authed */ }
+    
+    if (typeof updateLicenseUI === 'function') {
+      updateLicenseUI();
+    }
+  } catch { /* silent */ }
+}
+checkLicenseStatus();
+
+// ── License Activation Modal ───────────────────────────────────────────────
+(function initLicenseModal() {
+  const modal = document.getElementById('upgradeModal');
+  const navBtn = document.getElementById('navUpgradeBtn');
+  const activateBtn = document.getElementById('activateLicenseBtn');
+  const licenseInput = document.getElementById('licenseKeyInput');
+
+  if (navBtn && modal) {
+    navBtn.addEventListener('click', () => {
+      document.getElementById('dropdownMenu')?.classList.remove('show');
+      modal.showModal();
+    });
+  }
+
+  if (activateBtn && licenseInput) {
+    activateBtn.addEventListener('click', async () => {
+      const key = licenseInput.value.trim();
+      if (!key) {
+        showToast('Please enter a license key', 'warn');
+        return;
+      }
+      activateBtn.disabled = true;
+      activateBtn.textContent = 'Activating...';
+      try {
+        const res = await api('/api/license/activate', {
+          method: 'POST',
+          body: JSON.stringify({ licenseKey: key })
+        });
+        showToast(`✅ Activated ${res.tier} License!`, 'success');
+        modal.close();
+        checkLicenseStatus(); // re-check to update UI
+      } catch (err) {
+        showToast(`Activation failed: ${err.message}`, 'error');
+      } finally {
+        activateBtn.disabled = false;
+        activateBtn.textContent = 'Activate';
+      }
+    });
+  }
 })();
 // ── Wizard Token Type Tab Switcher ────────────────────────────────────────
 (function() {

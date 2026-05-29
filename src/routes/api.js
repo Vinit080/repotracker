@@ -269,6 +269,56 @@ export async function handleApi(request, response) {
     return;
   }
 
+  // ── License Activation ───────────────────────────────────────────────────
+  if (request.method === 'POST' && requestUrl.pathname === '/api/license/activate') {
+    const body = await readRequestJson(request);
+    const key = (body.licenseKey || '').trim();
+    if (!key) {
+      sendJson(response, 400, { error: 'License key is required' });
+      return;
+    }
+
+    try {
+      const lsRes = await fetch('https://api.lemonsqueezy.com/v1/licenses/activate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json' },
+        body: new URLSearchParams({ license_key: key, instance_name: 'RepoTracker Local' })
+      });
+      const lsData = await lsRes.json();
+
+      if (!lsRes.ok || lsData.error) {
+        sendJson(response, 400, { error: lsData.error || 'Invalid license key' });
+        return;
+      }
+
+      if (lsData.activated) {
+        const newConfig = {
+          ...config,
+          licenseKey: key,
+          licenseTier: lsData.meta?.variant_name || 'Pro',
+          licenseInstanceId: lsData.instance?.id || null,
+          licenseActivatedAt: new Date().toISOString()
+        };
+        await writeJson(CONFIG_FILE, normalizeConfig(newConfig));
+        sendJson(response, 200, { ok: true, tier: newConfig.licenseTier });
+      } else {
+        sendJson(response, 400, { error: 'Failed to activate license.' });
+      }
+    } catch (err) {
+      console.error('License activation error:', err);
+      sendJson(response, 500, { error: 'Network error while contacting license server' });
+    }
+    return;
+  }
+
+  if (request.method === 'GET' && requestUrl.pathname === '/api/license/status') {
+    sendJson(response, 200, {
+      active: !!config.licenseKey,
+      tier: config.licenseTier || 'Free'
+    });
+    return;
+  }
+
   // H1: Pick only known keys from the request body; handle masked sentinels
   if (request.method === 'PUT' && requestUrl.pathname === '/api/config') {
     const body = await readRequestJson(request);
