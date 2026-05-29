@@ -314,7 +314,7 @@ export async function handleApi(request, response) {
   if (request.method === 'GET' && requestUrl.pathname === '/api/license/status') {
     sendJson(response, 200, {
       active: !!config.licenseKey,
-      tier: config.licenseTier || 'Free'
+      tier: config.licenseTier || 'Pro'
     });
     return;
   }

@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -39,13 +40,17 @@
         /* Animated Glowing Background */
         .bg-glow {
             position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
             z-index: -1;
             overflow: hidden;
             background: #030014;
         }
-        
-        .bg-glow::before, .bg-glow::after {
+
+        .bg-glow::before,
+        .bg-glow::after {
             content: '';
             position: absolute;
             width: 800px;
@@ -70,8 +75,13 @@
         }
 
         @keyframes float {
-            0% { transform: translate(0, 0); }
-            100% { transform: translate(100px, 100px); }
+            0% {
+                transform: translate(0, 0);
+            }
+
+            100% {
+                transform: translate(100px, 100px);
+            }
         }
 
         .container {
@@ -99,7 +109,7 @@
             display: flex;
             align-items: center;
             gap: 8px;
-            text-shadow: 0 0 20px rgba(255,255,255,0.2);
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
         }
 
         .logo svg {
@@ -120,7 +130,7 @@
         .nav-links a:hover {
             color: #fff;
             opacity: 1;
-            text-shadow: 0 0 8px rgba(255,255,255,0.4);
+            text-shadow: 0 0 8px rgba(255, 255, 255, 0.4);
         }
 
         /* Hero */
@@ -176,26 +186,26 @@
             background-color: var(--accent);
             color: white;
             box-shadow: 0 0 20px var(--accent-glow);
-            border: 1px solid rgba(255,255,255,0.1);
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
 
         .btn-primary:hover {
             background-color: var(--accent-hover);
             transform: translateY(-2px);
-            box-shadow: 0 0 30px var(--accent-glow), inset 0 0 20px rgba(255,255,255,0.2);
+            box-shadow: 0 0 30px var(--accent-glow), inset 0 0 20px rgba(255, 255, 255, 0.2);
         }
 
         .btn-secondary {
-            background-color: rgba(255,255,255,0.03);
+            background-color: rgba(255, 255, 255, 0.03);
             color: var(--text);
-            border: 1px solid rgba(255,255,255,0.1);
+            border: 1px solid rgba(255, 255, 255, 0.1);
             margin-left: 16px;
             backdrop-filter: blur(10px);
         }
 
         .btn-secondary:hover {
-            background-color: rgba(255,255,255,0.08);
-            border-color: rgba(255,255,255,0.2);
+            background-color: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.2);
             transform: translateY(-2px);
         }
 
@@ -235,14 +245,16 @@
             position: relative;
             overflow: hidden;
         }
-        
+
         /* Subtle glow inside card */
         .card::before {
             content: '';
             position: absolute;
-            top: 0; left: 0; right: 0;
+            top: 0;
+            left: 0;
+            right: 0;
             height: 1px;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
             opacity: 0;
             transition: opacity 0.4s;
         }
@@ -252,14 +264,16 @@
             border-color: var(--card-border-hover);
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), 0 0 20px rgba(99, 102, 241, 0.15);
         }
-        
-        .card:hover::before { opacity: 1; }
+
+        .card:hover::before {
+            opacity: 1;
+        }
 
         .card-icon {
             font-size: 2.5rem;
             margin-bottom: 20px;
             display: inline-block;
-            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));
+            filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.3));
         }
 
         .card h3 {
@@ -298,10 +312,10 @@
             -webkit-backdrop-filter: blur(20px);
             transition: all 0.4s;
         }
-        
+
         .price-card:hover {
             transform: translateY(-4px);
-            border-color: rgba(255,255,255,0.15);
+            border-color: rgba(255, 255, 255, 0.15);
         }
 
         .price-card.pro {
@@ -310,7 +324,7 @@
             box-shadow: 0 0 40px rgba(99, 102, 241, 0.15), inset 0 0 0 1px rgba(99, 102, 241, 0.2);
             background: linear-gradient(180deg, rgba(30, 27, 75, 0.6) 0%, rgba(15, 23, 42, 0.6) 100%);
         }
-        
+
         .price-card.pro:hover {
             box-shadow: 0 0 60px rgba(99, 102, 241, 0.25), inset 0 0 0 1px rgba(99, 102, 241, 0.4);
             border-color: #8b5cf6;
@@ -356,7 +370,7 @@
             font-size: 1rem;
             margin-bottom: 40px;
             padding-bottom: 32px;
-            border-bottom: 1px solid rgba(255,255,255,0.08);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
         }
 
         .features-list {
@@ -387,7 +401,7 @@
 
         /* Footer */
         footer {
-            border-top: 1px solid rgba(255,255,255,0.05);
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
             padding: 48px 0;
             text-align: center;
             color: var(--muted);
@@ -396,20 +410,42 @@
         }
 
         @media (max-width: 768px) {
-            .hero h1 { font-size: 2.75rem; }
-            .nav-links { display: none; }
-            .btn-secondary { margin-left: 0; margin-top: 16px; display: block; }
-            .hero { padding: 80px 0 60px; }
-            .grid, .pricing-grid { gap: 20px; }
+            .hero h1 {
+                font-size: 2.75rem;
+            }
+
+            .nav-links {
+                display: none;
+            }
+
+            .btn-secondary {
+                margin-left: 0;
+                margin-top: 16px;
+                display: block;
+            }
+
+            .hero {
+                padding: 80px 0 60px;
+            }
+
+            .grid,
+            .pricing-grid {
+                gap: 20px;
+            }
         }
     </style>
 </head>
+
 <body>
     <div class="bg-glow"></div>
 
     <header class="container">
         <div class="logo">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17l6-6-6-6"/><path d="M12 19h8"/></svg>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 17l6-6-6-6" />
+                <path d="M12 19h8" />
+            </svg>
             RepoTracker
         </div>
         <nav class="nav-links">
@@ -421,7 +457,8 @@
 
     <section class="hero container">
         <h1>Your intelligent, local-first <br><span>Git mission control.</span></h1>
-        <p>Automatically discover, monitor, and manage every Git repository on your machine from a single, stunning dashboard. No cloud. No tracking. Your code stays yours.</p>
+        <p>Automatically discover, monitor, and manage every Git repository on your machine from a single, stunning
+            dashboard. No cloud. No tracking. Your code stays yours.</p>
         <div>
             <a href="https://github.com/Vinit080/repotracker" class="btn btn-primary">Download Free</a>
             <a href="#pricing" class="btn btn-secondary">View Pricing</a>
@@ -434,17 +471,20 @@
             <div class="card">
                 <div class="card-icon">📡</div>
                 <h3>Auto Discovery</h3>
-                <p>Point RepoTracker at your root folders and it recursively maps every Git repo instantly. Stop managing bookmarks.</p>
+                <p>Point RepoTracker at your root folders and it recursively maps every Git repo instantly. Stop
+                    managing bookmarks.</p>
             </div>
             <div class="card">
                 <div class="card-icon">🤖</div>
                 <h3>AI Code Review & Sync</h3>
-                <p>Generate perfect commit messages via Gemini AI. Analyze uncommitted diffs for bugs before you push.</p>
+                <p>Generate perfect commit messages via Gemini AI. Analyze uncommitted diffs for bugs before you push.
+                </p>
             </div>
             <div class="card">
                 <div class="card-icon">💻</div>
                 <h3>Shelby Terminal</h3>
-                <p>Fully interactive embedded terminal powered by xterm.js. Run commands without ever leaving the dashboard.</p>
+                <p>Fully interactive embedded terminal powered by xterm.js. Run commands without ever leaving the
+                    dashboard.</p>
             </div>
             <div class="card">
                 <div class="card-icon">❤️</div>
@@ -454,17 +494,20 @@
             <div class="card">
                 <div class="card-icon">📈</div>
                 <h3>90-Day Contribution Graph</h3>
-                <p>Visualize your momentum with a beautiful, local-first activity grid tracking your commits across all your projects.</p>
+                <p>Visualize your momentum with a beautiful, local-first activity grid tracking your commits across all
+                    your projects.</p>
             </div>
             <div class="card">
                 <div class="card-icon">⏱️</div>
                 <h3>Deep Work Pomodoro</h3>
-                <p>Built-in focus timer with desktop notifications. 4-session cycle with long breaks to keep you productive.</p>
+                <p>Built-in focus timer with desktop notifications. 4-session cycle with long breaks to keep you
+                    productive.</p>
             </div>
             <div class="card">
                 <div class="card-icon">☁️</div>
                 <h3>Cloud Config Sync</h3>
-                <p>Sync your roots, settings, and tags to a private GitHub Gist. Restore your perfect setup on any machine.</p>
+                <p>Sync your roots, settings, and tags to a private GitHub Gist. Restore your perfect setup on any
+                    machine.</p>
             </div>
         </div>
     </section>
@@ -472,52 +515,105 @@
     <section id="pricing" class="pricing container">
         <h2 class="section-title">Simple, transparent pricing.</h2>
         <div class="pricing-grid">
-            
+
             <!-- Free Tier -->
             <div class="price-card">
                 <h3>Core / Open Source</h3>
-                <div class="price">$0<span> / forever</span></div>
+                <div class="price">₹0<span> / forever</span></div>
                 <p class="price-desc">Perfect for individual developers.</p>
                 <ul class="features-list">
-                    <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> Unlimited local repositories</li>
-                    <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> Repo Auto-Discovery</li>
-                    <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> Health Scoring & Global Search</li>
-                    <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> Shelby Embedded Terminal</li>
-                    <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> Visual Branch Manager</li>
+                    <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg> Unlimited local repositories</li>
+                    <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg> Repo Auto-Discovery</li>
+                    <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg> Health Scoring & Global Search</li>
+                    <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg> Shelby Embedded Terminal</li>
+                    <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg> Visual Branch Manager</li>
                 </ul>
-                <a href="https://github.com/Vinit080/repotracker" class="btn btn-secondary" style="margin-left:0;">Download from GitHub</a>
+                <a href="https://github.com/Vinit080/repotracker" class="btn btn-secondary"
+                    style="margin-left:0;">Download from GitHub</a>
             </div>
 
             <!-- Pro Tier -->
             <div class="price-card pro">
                 <div class="pro-badge">Most Popular</div>
                 <h3>Pro</h3>
-                <div class="price">$29<span> / one-time</span></div>
+                <div class="price">₹499<span> / one-time</span></div>
                 <p class="price-desc">Supercharge your workflow with AI.</p>
                 <ul class="features-list">
-                    <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> <strong style="color:white;">Everything in Core</strong></li>
-                    <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> AI Code Reviewer</li>
-                    <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> AI Git Sync & Commit Messages</li>
-                    <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> AI Weekly Standup Reports</li>
-                    <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> GitHub Gist Config Sync</li>
-                    <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> 90-Day Contribution Graph</li>
-                    <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> WakaTime Integration</li>
+                    <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg> <strong style="color:white;">Everything in Core</strong></li>
+                    <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg> AI Code Reviewer</li>
+                    <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg> AI Git Sync & Commit Messages</li>
+                    <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg> AI Weekly Standup Reports</li>
+                    <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg> GitHub Gist Config Sync</li>
+                    <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg> 90-Day Contribution Graph</li>
+                    <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg> WakaTime Integration</li>
                 </ul>
                 <!-- Note: Replace the href below with your actual Lemon Squeezy checkout URL -->
-                <a href="YOUR_LEMON_SQUEEZY_CHECKOUT_LINK_HERE" class="btn btn-primary" target="_blank">Get Pro License</a>
+                <a href="YOUR_LEMON_SQUEEZY_CHECKOUT_LINK_HERE" class="btn btn-primary" target="_blank">Get Pro
+                    License</a>
             </div>
 
             <!-- Team Tier -->
             <div class="price-card">
                 <h3>Team</h3>
-                <div class="price">$79<span> / one-time</span></div>
+                <div class="price">₹1499<span> / year</span></div>
                 <p class="price-desc">Share across your local network.</p>
                 <ul class="features-list">
-                    <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> <strong style="color:white;">Everything in Pro</strong></li>
-                    <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> 5-Seat Team License</li>
-                    <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> LAN Dashboard Broadcasting</li>
-                    <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> Generate Invite Tokens</li>
-                    <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> Team-wide Standup Visibility</li>
+                    <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg> <strong style="color:white;">Everything in Pro</strong></li>
+                    <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg> 5-Seat Team License</li>
+                    <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg> LAN Dashboard Broadcasting</li>
+                    <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg> Generate Invite Tokens</li>
+                    <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg> Team-wide Standup Visibility</li>
                 </ul>
                 <!-- Note: The href will be updated to the actual LemonSqueezy checkout URL once generated -->
                 <a href="#" class="btn btn-secondary" style="margin-left:0;">Get Team License</a>
@@ -532,4 +628,5 @@
         </div>
     </footer>
 </body>
+
 </html>

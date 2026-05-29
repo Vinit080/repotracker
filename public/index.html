@@ -68,7 +68,7 @@
               <span class="dropdown-label">Subscription</span>
               <button class="dropdown-item" id="navUpgradeBtn" style="color:var(--accent);">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-                Manage Pro Plan
+                Manage Team Plan
               </button>
             </div>
             <div class="dropdown-section">
@@ -404,35 +404,31 @@
             <span id="upgradeModalIcon">✨</span>
           </div>
           <div>
-            <h2 id="upgradeModalTitle" style="margin:0 0 4px;font-size:1.5rem;font-weight:700;">Upgrade to Pro</h2>
-            <p id="upgradeModalDesc" style="margin:0;font-size:0.88rem;color:var(--muted);line-height:1.4;max-width:340px;">Unlock AI features, cloud sync, and more.</p>
+            <h2 id="upgradeModalTitle" style="margin:0 0 4px;font-size:1.5rem;font-weight:700;">Upgrade to Team</h2>
+            <p id="upgradeModalDesc" style="margin:0;font-size:0.88rem;color:var(--muted);line-height:1.4;max-width:340px;">Unlock local network sharing for your team.</p>
           </div>
         </div>
         <div style="display:inline-flex;align-items:center;gap:8px;background:color-mix(in srgb,var(--accent) 12%,transparent);border:1px solid color-mix(in srgb,var(--accent) 25%,transparent);border-radius:99px;padding:6px 14px;">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-          <span id="upgradeModalPrice" style="font-size:0.9rem;font-weight:700;color:var(--accent);">$29 one-time</span>
-          <span style="font-size:0.82rem;color:var(--muted);">· no subscription ever</span>
+          <span id="upgradeModalPrice" style="font-size:0.9rem;font-weight:700;color:var(--accent);">₹1499 yearly</span>
+          <span style="font-size:0.82rem;color:var(--muted);">· cancel anytime</span>
         </div>
       </div>
 
       <!-- Feature list -->
       <div style="padding:24px 36px;display:grid;gap:10px;">
         <p style="margin:0 0 4px;font-size:0.78rem;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);">What you unlock</p>
-        <div class="upgrade-feature-row" data-feature="ai_review" style="display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border-radius:10px;background:color-mix(in srgb,var(--accent) 6%,transparent);border:1px solid color-mix(in srgb,var(--accent) 15%,transparent);transition:background 0.15s,border-color 0.15s;">
-          <span style="font-size:1.1rem;margin-top:1px;">🤖</span>
-          <div><strong style="font-size:0.9rem;">AI Code Review + AI Git Sync</strong><p style="margin:2px 0 0;font-size:0.82rem;color:var(--muted);">Analyze diffs for bugs before committing. Generate perfect commit messages.</p></div>
-        </div>
-        <div class="upgrade-feature-row" data-feature="gist_sync" style="display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border-radius:10px;background:color-mix(in srgb,var(--accent) 6%,transparent);border:1px solid color-mix(in srgb,var(--accent) 15%,transparent);transition:background 0.15s,border-color 0.15s;">
-          <span style="font-size:1.1rem;margin-top:1px;">☁️</span>
-          <div><strong style="font-size:0.9rem;">Cloud Config Sync</strong><p style="margin:2px 0 0;font-size:0.82rem;color:var(--muted);">Back up your settings to a private GitHub Gist. Restore on any machine.</p></div>
-        </div>
-        <div class="upgrade-feature-row" data-feature="pomodoro" style="display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border-radius:10px;background:color-mix(in srgb,var(--accent) 6%,transparent);border:1px solid color-mix(in srgb,var(--accent) 15%,transparent);transition:background 0.15s,border-color 0.15s;">
-          <span style="font-size:1.1rem;margin-top:1px;">⏱</span>
-          <div><strong style="font-size:0.9rem;">Deep Work Pomodoro</strong><p style="margin:2px 0 0;font-size:0.82rem;color:var(--muted);">Focus timer with desktop notifications. 4-session cycle with long breaks.</p></div>
-        </div>
         <div class="upgrade-feature-row" data-feature="team_mode" style="display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border-radius:10px;background:color-mix(in srgb,var(--accent) 6%,transparent);border:1px solid color-mix(in srgb,var(--accent) 15%,transparent);transition:background 0.15s,border-color 0.15s;">
           <span style="font-size:1.1rem;margin-top:1px;">👥</span>
-          <div><strong style="font-size:0.9rem;">Team Mode <span style="font-size:0.75rem;padding:2px 7px;border-radius:99px;background:color-mix(in srgb,#818cf8 20%,transparent);color:#818cf8;margin-left:4px;">Team $79</span></strong><p style="margin:2px 0 0;font-size:0.82rem;color:var(--muted);">Share your dashboard with teammates on the same network. Up to 5 seats.</p></div>
+          <div><strong style="font-size:0.9rem;">Team Mode</strong><p style="margin:2px 0 0;font-size:0.82rem;color:var(--muted);">Share your dashboard with teammates on the same network. Up to 5 seats.</p></div>
+        </div>
+        <div class="upgrade-feature-row" data-feature="lan_dashboard" style="display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border-radius:10px;background:color-mix(in srgb,var(--accent) 6%,transparent);border:1px solid color-mix(in srgb,var(--accent) 15%,transparent);transition:background 0.15s,border-color 0.15s;">
+          <span style="font-size:1.1rem;margin-top:1px;">📡</span>
+          <div><strong style="font-size:0.9rem;">LAN Broadcasting</strong><p style="margin:2px 0 0;font-size:0.82rem;color:var(--muted);">Zero-config server exposes your dashboard over your local network.</p></div>
+        </div>
+        <div class="upgrade-feature-row" data-feature="team_standup" style="display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border-radius:10px;background:color-mix(in srgb,var(--accent) 6%,transparent);border:1px solid color-mix(in srgb,var(--accent) 15%,transparent);transition:background 0.15s,border-color 0.15s;">
+          <span style="font-size:1.1rem;margin-top:1px;">📊</span>
+          <div><strong style="font-size:0.9rem;">Team-wide Standup</strong><p style="margin:2px 0 0;font-size:0.82rem;color:var(--muted);">Generate AI standup reports using data from the entire team's local commits.</p></div>
         </div>
       </div>
 
@@ -447,14 +443,14 @@
           </div>
         </details>
         <div style="display:flex;align-items:center;gap:12px;">
-          <a id="upgradeModalBtn" href="https://repotracker.lemonsqueezy.com/buy/pro" target="_blank" rel="noreferrer"
+          <a id="upgradeModalBtn" href="https://repotracker.lemonsqueezy.com/buy/team" target="_blank" rel="noreferrer"
             style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:14px;border-radius:10px;background:var(--accent);color:#fff;font-weight:700;font-size:0.95rem;text-decoration:none;transition:opacity 0.15s;box-shadow:0 4px 16px color-mix(in srgb,var(--accent) 40%,transparent);"
             onmouseover="this.style.opacity='0.88'" onmouseout="this.style.opacity='1'">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
-            Get <span id="upgradeModalTier">Pro</span> — <span id="upgradeModalPriceCta">$29</span>
+            Get <span id="upgradeModalTier">Team</span> — <span id="upgradeModalPriceCta">₹1499</span>
           </a>
           <div style="font-size:0.78rem;color:var(--muted);text-align:center;line-height:1.4;">
-            <div>✓ One-time payment</div>
+            <div>✓ Yearly payment</div>
             <div>✓ Instant license key</div>
           </div>
         </div>
