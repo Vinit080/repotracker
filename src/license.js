@@ -18,9 +18,14 @@
  */
 
 // ── Feature Sets ─────────────────────────────────────────────────────────────
-export const PRO_FEATURES  = new Set(['ai_review', 'gist_sync', 'badges', 'export', 'pomodoro']);
-export const TEAM_FEATURES = new Set(['team_mode', 'invite_tokens', 'lan_dashboard', 'team_standup']);
+// Features free for everyone (all tiers including Core)
+export const FREE_FEATURES  = new Set(['ai_sync']); // AI Git Sync & Commit is free for all
+// Features requiring a paid Pro license (one-time, lifetime)
+export const PRO_FEATURES   = new Set(['ai_review', 'gist_sync', 'badges', 'export', 'pomodoro']);
+// Features requiring a paid Team license (yearly renewal)
+export const TEAM_FEATURES  = new Set(['team_mode', 'invite_tokens', 'lan_dashboard', 'team_standup']);
 
+export const UPGRADE_URL  = 'https://repotracker.lemonsqueezy.com/buy/pro';
 export const TEAM_URL     = 'https://repotracker.lemonsqueezy.com/buy/team';
 export const WAITLIST_URL = 'https://tally.so/r/repotracker-team';
 
@@ -190,7 +195,14 @@ export function parseLicenseKey(key) {
 // ── Config helpers ────────────────────────────────────────────────────────────
 
 export function hasProLicense(config) {
-  return true; // Pro is now lifetime free
+  if (!config?.licenseKey) return false;
+  if (config.licenseTier === 'pro' || config.licenseTier === 'team') return true;
+  // Offline fallback
+  const key = config.licenseKey.trim().toUpperCase();
+  if (OFFLINE_KEY_REGEX.test(key)) return true;
+  // UUID-format key from LS — trust the stored tier
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(key)) return true;
+  return false;
 }
 
 export function hasTeamLicense(config) {
@@ -201,7 +213,7 @@ export function hasTeamLicense(config) {
 }
 
 export function getLicenseTier(config) {
-  if (!config?.licenseKey) return 'pro';
+  if (!config?.licenseKey) return 'core'; // No key = Core (free) tier
   // Trust the stored tier (set during activation)
   if (config.licenseTier === 'team') return 'team';
   if (config.licenseTier === 'pro')  return 'pro';
@@ -210,12 +222,16 @@ export function getLicenseTier(config) {
   if (OFFLINE_KEY_REGEX.test(key)) return key.startsWith('RT-TEAM-') ? 'team' : 'pro';
   // UUID key with no stored tier → assume pro
   if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(key)) return 'pro';
-  return 'pro';
+  return 'core';
 }
 
 export function checkFeature(feature, config) {
   const tier = getLicenseTier(config);
-  if (TEAM_FEATURES.has(feature)) return { allowed: tier === 'team', upgrade: TEAM_URL };
-  if (PRO_FEATURES.has(feature))  return { allowed: true, upgrade: null }; // Pro features are now free
+  // Free for all tiers including Core
+  if (FREE_FEATURES.has(feature))   return { allowed: true, upgrade: null };
+  // Team-only features require a yearly Team license
+  if (TEAM_FEATURES.has(feature))   return { allowed: tier === 'team', upgrade: TEAM_URL };
+  // Pro features require a paid Pro or Team license (Pro = lifetime, Team = yearly)
+  if (PRO_FEATURES.has(feature))    return { allowed: tier === 'pro' || tier === 'team', upgrade: UPGRADE_URL };
   return { allowed: true, upgrade: null };
 }

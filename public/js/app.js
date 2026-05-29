@@ -1628,7 +1628,7 @@ document.addEventListener('click', e => {
 function updateLicenseUI() {
   // Use licenseTier from config (set by server during activation) — no key-format guessing needed
   const hasKey  = Boolean(state.config?.licenseKeySet);
-  const tier    = state.config?.licenseTier || state.tier || 'pro';
+  const tier    = state.config?.licenseTier || state.tier || 'core';
   const isTeam  = tier === 'team';
   const tierLabel = document.getElementById('licenseTierLabel');
   const activeRow = document.getElementById('licenseActiveRow');
@@ -1670,7 +1670,7 @@ document.getElementById('revokeLicenseBtn')?.addEventListener('click', async () 
   try {
     await api('/api/license', { method: 'DELETE' });
     state.tier = 'free';
-    state.config = { ...state.config, licenseKeySet: false, licenseKey: '', licenseTier: 'pro', licenseInstanceId: null };
+    state.config = { ...state.config, licenseKeySet: false, licenseKey: '', licenseTier: 'core', licenseInstanceId: null };
     updateLicenseUI();
     showToast('License deactivated. Activation slot freed — you can now activate on another machine.', 'info');
   } catch (err) { showToast(`❌ ${err.message}`, 'error'); }

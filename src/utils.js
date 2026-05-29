@@ -91,7 +91,7 @@ export function sanitizeConfigForResponse(config) {
     // P11: mask licenseKey just like other secrets — browser only needs to know if one is set
     licenseKey:         config.licenseKey ? MASK : '',
     licenseKeySet:      Boolean(config.licenseKey),
-    licenseTier:        config.licenseTier || 'pro',       // tier is safe to expose (not a secret)
+    licenseTier:        config.licenseTier || 'core',      // tier is safe to expose (not a secret)
     licenseInstanceId:  config.licenseInstanceId || null,  // safe: opaque LS instance ID
     licenseActivatedAt: config.licenseActivatedAt || null,
     appPasswordSet:     Boolean(config.appPasswordHash),

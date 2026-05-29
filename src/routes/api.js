@@ -836,10 +836,7 @@ export async function handleApi(request, response) {
 
   if (request.method === 'POST' && requestUrl.pathname === '/api/repos/aisync') {
     if (!config.aiApiKey) { sendJson(response, 401, { error: 'No AI API Key configured' }); return; }
-    // P9: license gate
-    const { checkFeature: _cfAisync } = await import('../license.js');
-    const { allowed: _allowedAisync, upgrade: _upgradeAisync } = _cfAisync('ai_review', config);
-    if (!_allowedAisync) { sendJson(response, 403, { requiresUpgrade: true, feature: 'ai_review', upgradeUrl: _upgradeAisync, error: 'AI Sync requires a Pro license.' }); return; }
+    // ai_sync is a FREE feature available to all tiers — no license check required
     const body = await readRequestJson(request);
     const repoPath = body.path ? path.resolve(body.path) : '';
     if (!repoPath || !(await isPathWithinRoots(repoPath, config.roots))) {
