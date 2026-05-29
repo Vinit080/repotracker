@@ -9,13 +9,15 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg: #09090b;
-            --bg-card: #18181b;
-            --text: #f4f4f5;
-            --muted: #a1a1aa;
+            --bg: #030014;
+            --text: #f8fafc;
+            --muted: #94a3b8;
             --accent: #6366f1;
             --accent-hover: #4f46e5;
-            --border: #27272a;
+            --accent-glow: rgba(99, 102, 241, 0.5);
+            --card-bg: rgba(15, 23, 42, 0.6);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --card-border-hover: rgba(99, 102, 241, 0.5);
         }
 
         * {
@@ -30,12 +32,54 @@
             color: var(--text);
             line-height: 1.6;
             -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* Animated Glowing Background */
+        .bg-glow {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            z-index: -1;
+            overflow: hidden;
+            background: #030014;
+        }
+        
+        .bg-glow::before, .bg-glow::after {
+            content: '';
+            position: absolute;
+            width: 800px;
+            height: 800px;
+            border-radius: 50%;
+            filter: blur(120px);
+            opacity: 0.15;
+            animation: float 20s infinite ease-in-out alternate;
+        }
+
+        .bg-glow::before {
+            top: -200px;
+            left: -200px;
+            background: #8b5cf6;
+        }
+
+        .bg-glow::after {
+            bottom: -200px;
+            right: -200px;
+            background: #3b82f6;
+            animation-delay: -10s;
+        }
+
+        @keyframes float {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(100px, 100px); }
         }
 
         .container {
             max-width: 1100px;
             margin: 0 auto;
             padding: 0 24px;
+            position: relative;
+            z-index: 1;
         }
 
         /* Header */
@@ -44,6 +88,8 @@
             justify-content: space-between;
             align-items: center;
             padding: 24px 0;
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
         }
 
         .logo {
@@ -53,10 +99,12 @@
             display: flex;
             align-items: center;
             gap: 8px;
+            text-shadow: 0 0 20px rgba(255,255,255,0.2);
         }
 
         .logo svg {
             color: var(--accent);
+            filter: drop-shadow(0 0 8px var(--accent-glow));
         }
 
         .nav-links a {
@@ -65,23 +113,26 @@
             font-weight: 500;
             font-size: 0.95rem;
             margin-left: 32px;
-            transition: color 0.2s;
+            transition: all 0.2s;
+            opacity: 0.8;
         }
 
         .nav-links a:hover {
-            color: var(--accent);
+            color: #fff;
+            opacity: 1;
+            text-shadow: 0 0 8px rgba(255,255,255,0.4);
         }
 
         /* Hero */
         .hero {
-            padding: 100px 0 80px;
+            padding: 120px 0 100px;
             text-align: center;
             max-width: 800px;
             margin: 0 auto;
         }
 
         .hero h1 {
-            font-size: 3.5rem;
+            font-size: 4rem;
             font-weight: 800;
             line-height: 1.1;
             letter-spacing: -0.03em;
@@ -89,48 +140,63 @@
         }
 
         .hero h1 span {
-            color: var(--accent);
+            background: linear-gradient(135deg, #a855f7, #6366f1, #3b82f6);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 0 20px rgba(99, 102, 241, 0.3));
         }
 
         .hero p {
             font-size: 1.25rem;
             color: var(--muted);
-            margin-bottom: 40px;
+            margin-bottom: 48px;
+            max-width: 700px;
+            margin-left: auto;
+            margin-right: auto;
         }
 
         .btn {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            padding: 14px 28px;
-            border-radius: 8px;
+            padding: 16px 32px;
+            border-radius: 12px;
             font-weight: 600;
             text-decoration: none;
-            transition: all 0.2s;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             cursor: pointer;
             border: none;
-            font-size: 1rem;
+            font-size: 1.05rem;
+            position: relative;
+            overflow: hidden;
         }
 
         .btn-primary {
             background-color: var(--accent);
             color: white;
+            box-shadow: 0 0 20px var(--accent-glow);
+            border: 1px solid rgba(255,255,255,0.1);
         }
 
         .btn-primary:hover {
             background-color: var(--accent-hover);
             transform: translateY(-2px);
+            box-shadow: 0 0 30px var(--accent-glow), inset 0 0 20px rgba(255,255,255,0.2);
         }
 
         .btn-secondary {
-            background-color: transparent;
+            background-color: rgba(255,255,255,0.03);
             color: var(--text);
-            border: 1px solid var(--border);
+            border: 1px solid rgba(255,255,255,0.1);
             margin-left: 16px;
+            backdrop-filter: blur(10px);
         }
 
         .btn-secondary:hover {
-            background-color: var(--bg-card);
+            background-color: rgba(255,255,255,0.08);
+            border-color: rgba(255,255,255,0.2);
+            transform: translateY(-2px);
         }
 
         /* Features */
@@ -140,127 +206,179 @@
 
         .section-title {
             text-align: center;
-            font-size: 2.5rem;
-            font-weight: 700;
-            margin-bottom: 48px;
+            font-size: 2.75rem;
+            font-weight: 800;
+            margin-bottom: 64px;
             letter-spacing: -0.02em;
+            background: linear-gradient(180deg, #fff, #94a3b8);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
 
         .grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
             gap: 24px;
         }
 
+        /* Glassmorphism Cards */
         .card {
-            background-color: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 12px;
+            background-color: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 20px;
             padding: 32px;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        /* Subtle glow inside card */
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            opacity: 0;
+            transition: opacity 0.4s;
         }
 
+        .card:hover {
+            transform: translateY(-6px);
+            border-color: var(--card-border-hover);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), 0 0 20px rgba(99, 102, 241, 0.15);
+        }
+        
+        .card:hover::before { opacity: 1; }
+
         .card-icon {
-            font-size: 2rem;
-            margin-bottom: 16px;
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+            display: inline-block;
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));
         }
 
         .card h3 {
-            font-size: 1.25rem;
-            font-weight: 600;
+            font-size: 1.35rem;
+            font-weight: 700;
             margin-bottom: 12px;
+            letter-spacing: -0.01em;
         }
 
         .card p {
             color: var(--muted);
-            font-size: 0.95rem;
+            font-size: 1rem;
+            line-height: 1.6;
         }
 
         /* Pricing */
         .pricing {
-            padding: 80px 0 120px;
+            padding: 100px 0 140px;
         }
 
         .pricing-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 24px;
-            align-items: center;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 32px;
+            align-items: stretch;
         }
 
         .price-card {
-            background-color: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 40px 32px;
+            background-color: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 24px;
+            padding: 48px 40px;
             display: flex;
             flex-direction: column;
-            height: 100%;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            transition: all 0.4s;
+        }
+        
+        .price-card:hover {
+            transform: translateY(-4px);
+            border-color: rgba(255,255,255,0.15);
         }
 
         .price-card.pro {
             border-color: var(--accent);
             position: relative;
-            box-shadow: 0 0 40px rgba(99, 102, 241, 0.1);
+            box-shadow: 0 0 40px rgba(99, 102, 241, 0.15), inset 0 0 0 1px rgba(99, 102, 241, 0.2);
+            background: linear-gradient(180deg, rgba(30, 27, 75, 0.6) 0%, rgba(15, 23, 42, 0.6) 100%);
+        }
+        
+        .price-card.pro:hover {
+            box-shadow: 0 0 60px rgba(99, 102, 241, 0.25), inset 0 0 0 1px rgba(99, 102, 241, 0.4);
+            border-color: #8b5cf6;
         }
 
         .pro-badge {
             position: absolute;
-            top: -12px;
+            top: -14px;
             left: 50%;
             transform: translateX(-50%);
-            background-color: var(--accent);
+            background: linear-gradient(90deg, #6366f1, #8b5cf6);
             color: white;
-            padding: 4px 12px;
+            padding: 6px 16px;
             border-radius: 20px;
-            font-size: 0.8rem;
-            font-weight: 700;
+            font-size: 0.85rem;
+            font-weight: 800;
             letter-spacing: 0.05em;
             text-transform: uppercase;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
         }
 
         .price-card h3 {
-            font-size: 1.5rem;
-            font-weight: 600;
-            margin-bottom: 8px;
+            font-size: 1.6rem;
+            font-weight: 700;
+            margin-bottom: 12px;
         }
 
         .price {
-            font-size: 3rem;
+            font-size: 3.5rem;
             font-weight: 800;
-            margin-bottom: 8px;
+            margin-bottom: 12px;
+            letter-spacing: -0.02em;
         }
 
         .price span {
-            font-size: 1rem;
+            font-size: 1.1rem;
             color: var(--muted);
             font-weight: 500;
         }
 
         .price-desc {
             color: var(--muted);
-            font-size: 0.9rem;
-            margin-bottom: 32px;
+            font-size: 1rem;
+            margin-bottom: 40px;
+            padding-bottom: 32px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
         }
 
         .features-list {
             list-style: none;
-            margin-bottom: 40px;
+            margin-bottom: 48px;
             flex-grow: 1;
         }
 
         .features-list li {
             display: flex;
             align-items: flex-start;
-            gap: 12px;
-            margin-bottom: 16px;
-            font-size: 0.95rem;
-            color: var(--text);
+            gap: 16px;
+            margin-bottom: 20px;
+            font-size: 1.05rem;
+            color: #cbd5e1;
         }
 
         .features-list li svg {
             color: var(--accent);
             flex-shrink: 0;
             margin-top: 2px;
+            filter: drop-shadow(0 0 4px var(--accent-glow));
         }
 
         .price-card .btn {
@@ -269,21 +387,25 @@
 
         /* Footer */
         footer {
-            border-top: 1px solid var(--border);
-            padding: 40px 0;
+            border-top: 1px solid rgba(255,255,255,0.05);
+            padding: 48px 0;
             text-align: center;
             color: var(--muted);
-            font-size: 0.9rem;
+            font-size: 0.95rem;
+            backdrop-filter: blur(10px);
         }
 
         @media (max-width: 768px) {
-            .hero h1 { font-size: 2.5rem; }
+            .hero h1 { font-size: 2.75rem; }
             .nav-links { display: none; }
             .btn-secondary { margin-left: 0; margin-top: 16px; display: block; }
+            .hero { padding: 80px 0 60px; }
+            .grid, .pricing-grid { gap: 20px; }
         }
     </style>
 </head>
 <body>
+    <div class="bg-glow"></div>
 
     <header class="container">
         <div class="logo">
@@ -373,7 +495,7 @@
                 <div class="price">$29<span> / one-time</span></div>
                 <p class="price-desc">Supercharge your workflow with AI.</p>
                 <ul class="features-list">
-                    <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> <strong>Everything in Core</strong></li>
+                    <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> <strong style="color:white;">Everything in Core</strong></li>
                     <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> AI Code Reviewer</li>
                     <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> AI Git Sync & Commit Messages</li>
                     <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> AI Weekly Standup Reports</li>
@@ -390,7 +512,7 @@
                 <div class="price">$79<span> / one-time</span></div>
                 <p class="price-desc">Share across your local network.</p>
                 <ul class="features-list">
-                    <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> <strong>Everything in Pro</strong></li>
+                    <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> <strong style="color:white;">Everything in Pro</strong></li>
                     <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> 5-Seat Team License</li>
                     <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> LAN Dashboard Broadcasting</li>
                     <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> Generate Invite Tokens</li>
@@ -408,6 +530,5 @@
             <p>&copy; 2026 RepoTracker. Built for developers who care about their Git hygiene.</p>
         </div>
     </footer>
-
 </body>
 </html>
