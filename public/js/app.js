@@ -263,12 +263,27 @@ const dateFormatter = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', 
 const relativeFormatter = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
 
 // ─── Self-Updater ─────────────────────────────────────────────────────────────
+let _updateDownloadUrl = null; // stored for the button click handler
+
 async function checkForAppUpdates() {
   try {
     const res = await api('/api/system/check-update');
-    if (res.updateAvailable) {
-      el.systemUpdateBanner.classList.remove('hidden');
-      el.updateBannerText.textContent = `A new update for RepoTracker is available! (${res.commitsBehind} commits behind)`;
+    if (!res.updateAvailable) return;
+
+    el.systemUpdateBanner.classList.remove('hidden');
+
+    if (res.isExe) {
+      // ── Packaged .exe: show a download link ───────────────────────────
+      _updateDownloadUrl = res.downloadUrl;
+      el.updateBannerText.textContent = `✨ RepoTracker ${res.latestVersion} is available! (you have ${res.currentVersion})`;
+      if (el.applyUpdateBtn) {
+        el.applyUpdateBtn.textContent = `Download ${res.latestVersion}`;
+        el.applyUpdateBtn.dataset.exeUpdate = '1'; // flag for click handler
+      }
+    } else {
+      // ── Git clone: show commit count and apply-update button ───────────────
+      el.updateBannerText.textContent = `A new update for RepoTracker is available! (${res.commitsBehind} commit${res.commitsBehind !== 1 ? 's' : ''} behind)`;
+      if (el.applyUpdateBtn) el.applyUpdateBtn.textContent = 'Update Now';
     }
   } catch (err) {
     console.error('Failed to check for system updates', err);
@@ -277,6 +292,14 @@ async function checkForAppUpdates() {
 
 el.applyUpdateBtn?.addEventListener('click', async () => {
   const btn = el.applyUpdateBtn;
+
+  // ── .exe path: open GitHub Releases page in browser ─────────────────────────
+  if (btn.dataset.exeUpdate === '1' && _updateDownloadUrl) {
+    window.open(_updateDownloadUrl, '_blank', 'noopener,noreferrer');
+    return;
+  }
+
+  // ── git-clone path: apply update server-side ─────────────────────────────
   const originalText = btn.textContent;
   btn.textContent = 'Updating...';
   btn.disabled = true;

@@ -520,11 +520,33 @@ export async function handleApi(request, response) {
   }
 
   if (request.method === 'GET' && requestUrl.pathname === '/api/system/check-update') {
+    const isExe = Boolean(process.pkg); // true when running as a packaged .exe
     try {
-      await execFileAsync('git', ['fetch'], { cwd: process.cwd() });
-      const { stdout } = await execFileAsync('git', ['rev-list', '--count', 'HEAD..origin/main'], { cwd: process.cwd() });
-      const commitsBehind = parseInt(stdout.trim(), 10) || 0;
-      sendJson(response, 200, { updateAvailable: commitsBehind > 0, commitsBehind });
+      if (isExe) {
+        // ── Packaged .exe: compare against GitHub latest release tag ──────────
+        const ghRes = await fetch('https://api.github.com/repos/Vinit080/repotracker/releases/latest', {
+          headers: { 'Accept': 'application/vnd.github+json', 'User-Agent': 'RepoTracker-App' },
+          signal: AbortSignal.timeout(8000),
+        });
+        if (!ghRes.ok) throw new Error('GitHub API error');
+        const ghData = await ghRes.json();
+        const latestTag  = ghData.tag_name || '';                    // e.g. "v0.3.1"
+        const currentVer = 'v' + (process.env.npm_package_version || '0.0.0');
+        // Simple semver compare: strip leading 'v' and split
+        const parseVer = v => v.replace(/^v/, '').split('.').map(Number);
+        const [lMaj, lMin, lPatch] = parseVer(latestTag);
+        const [cMaj, cMin, cPatch] = parseVer(currentVer);
+        const updateAvailable =
+          lMaj > cMaj || (lMaj === cMaj && lMin > cMin) || (lMaj === cMaj && lMin === cMin && lPatch > cPatch);
+        const downloadUrl = `https://github.com/Vinit080/repotracker/releases/tag/${latestTag}`;
+        sendJson(response, 200, { updateAvailable, isExe: true, latestVersion: latestTag, currentVersion: currentVer, downloadUrl });
+      } else {
+        // ── Git clone: check how many commits behind origin/main ──────────────
+        await execFileAsync('git', ['fetch'], { cwd: process.cwd() });
+        const { stdout } = await execFileAsync('git', ['rev-list', '--count', 'HEAD..origin/main'], { cwd: process.cwd() });
+        const commitsBehind = parseInt(stdout.trim(), 10) || 0;
+        sendJson(response, 200, { updateAvailable: commitsBehind > 0, isExe: false, commitsBehind });
+      }
     } catch (err) {
       sendJson(response, 500, { error: 'Failed to check for updates' });
     }
@@ -532,6 +554,11 @@ export async function handleApi(request, response) {
   }
 
   if (request.method === 'POST' && requestUrl.pathname === '/api/system/apply-update') {
+    if (process.pkg) {
+      // .exe users cannot self-update — this should never be called, but guard anyway
+      sendJson(response, 400, { error: 'Please download the latest .exe from the GitHub Releases page.' });
+      return;
+    }
     try {
       const { stdout } = await execFileAsync('git', ['remote', 'get-url', 'origin'], { cwd: process.cwd() });
       if (!stdout.trim().startsWith('https://github.com/Vinit080/repotracker')) {
