@@ -29,3 +29,11 @@ Thumbs.db
 .idea/
 *.swp
 public/vendor/
+
+# ── Build Artifacts ───────────────────────────────────────────────────────────
+dist/
+build/
+*.exe
+repotracker-macos-*
+repotracker-linux-*
+repotracker-win*
