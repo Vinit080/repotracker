@@ -20,6 +20,27 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.3.0] - 2026-05-29
+
+The Insights & AI Update.
+
+### Added
+- **90-Day Contribution Graph**: Beautiful GitHub-style activity grid on the Insights & Timeline tab that automatically pulls local commit history across all repositories.
+- **AI Standup Generator (Pro Feature)**: Analyzes the last 7 days of commits and uncommitted changes to generate a professional, formatted markdown standup summary instantly using AI.
+- **Pro Tier Licensing**: Full integration with Lemon Squeezy API for License Key activation to securely unlock premium features.
+
+### Changed
+- **Security**: Hardened `.gitignore` to prevent tracking of `dist/`, `build/`, and generated `.exe` artifacts.
+
+---
+
+## [0.2.1] - 2026-05-29
+
+### Added
+- **Executable Distribution**: Set up GitHub Actions CI/CD to automatically compile and distribute cross-platform standalone executables (`.exe` for Windows, macOS, Linux).
+
+---
+
 ## [0.2.0] - 2026-05-29
 
 Major feature release. Production-ready with a full security audit pass.

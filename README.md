@@ -1,13 +1,13 @@
 <div align="center">
 
-<img src="https://img.shields.io/badge/RepoTracker-v0.2.0-6366f1?style=for-the-badge&logoColor=white" alt="RepoTracker v0.2.0">
+<img src="https://img.shields.io/badge/RepoTracker-v0.3.0-6366f1?style=for-the-badge&logoColor=white" alt="RepoTracker v0.3.0">
 
 **Your intelligent, local-first Git mission control.**
 
 RepoTracker automatically discovers, monitors, and manages every Git repository on your machine — from a single, stunning `localhost` dashboard. No cloud. No subscription. No tracking. Your code stays on your computer.
 
 <p>
-  <a href="https://github.com/Vinit080/repotracker/releases"><img src="https://img.shields.io/badge/version-0.2.0-blueviolet?style=flat-square" alt="Version"></a>
+  <a href="https://github.com/Vinit080/repotracker/releases"><img src="https://img.shields.io/badge/version-0.3.0-blueviolet?style=flat-square" alt="Version"></a>
   <a href="https://github.com/Vinit080/repotracker/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-source--available-orange?style=flat-square" alt="License"></a>
   <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/node-%3E%3D20-brightgreen?style=flat-square&logo=node.js" alt="Node.js"></a>
   <a href="https://github.com/Vinit080/repotracker/stargazers"><img src="https://img.shields.io/github/stars/Vinit080/repotracker?style=flat-square&color=gold" alt="GitHub Stars"></a>
@@ -33,6 +33,7 @@ RepoTracker automatically discovers, monitors, and manages every Git repository 
 | **❤️ Health Scoring** | Repos scored 0–100 on dirty files, unpushed commits, staleness, and CI status |
 | **🌿 Branch Manager** | Create, checkout, merge, and delete branches from the UI — no terminal needed |
 | **🔎 Global Search** | Fast `git grep` across all repos at once. Find every `TODO` in seconds |
+| **📈 Contribution Graph** | GitHub-style 90-day local commit activity grid across all your projects |
 | **🔔 Smart Alerts** | Desktop notifications when repos fall 5+ commits behind, have 20+ dirty files, or go stale |
 | **🌐 GitHub Browser** | Browse all your GitHub repos (public + private) in the Ecosystem tab and clone with one click |
 
