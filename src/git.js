@@ -306,3 +306,40 @@ export async function scanRepos(config, meta) {
     repos
   };
 }
+
+export async function getCommitActivity(repoPath, sinceDays = 90) {
+  let authorEmail = await runGit(repoPath, ['config', 'user.email']);
+  if (!authorEmail) authorEmail = await runGit(repoPath, ['config', '--global', 'user.email']);
+
+  const args = ['log', '--format=%ad', '--date=short', `--since=${sinceDays} days ago`];
+  if (authorEmail) {
+    args.push(`--author=${authorEmail}`);
+  }
+
+  const logText = await runGit(repoPath, args, 5000);
+  if (!logText) return [];
+  return logText.split(/\r?\n/).filter(Boolean);
+}
+
+export async function getStandupData(repoPath, sinceDays = 7) {
+  let authorEmail = await runGit(repoPath, ['config', 'user.email']);
+  if (!authorEmail) authorEmail = await runGit(repoPath, ['config', '--global', 'user.email']);
+
+  const args = ['log', '--format=%h - %s', `--since=${sinceDays} days ago`];
+  if (authorEmail) {
+    args.push(`--author=${authorEmail}`);
+  }
+  const commitsText = await runGit(repoPath, args, 5000);
+  const statusText = await runGit(repoPath, ['status', '--short'], 3500);
+
+  const commits = commitsText.split(/\r?\n/).filter(Boolean);
+  const status = statusText.split(/\r?\n/).filter(Boolean);
+  
+  if (!commits.length && !status.length) return null;
+
+  return {
+    name: path.basename(repoPath),
+    commits,
+    status
+  };
+}

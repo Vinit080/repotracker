@@ -2322,5 +2322,91 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     if (btn.dataset.target === 'tab-ecosystem' && _ghRepos.length === 0) {
       loadGhRepos();
     }
+    if (btn.dataset.target === 'tab-insights') {
+      loadInsights();
+    }
   });
 });
+
+// ── INSIGHTS & AI STANDUP ──────────────────────────────────────────────────
+let _insightsLoaded = false;
+async function loadInsights() {
+  if (_insightsLoaded) return;
+  try {
+    const res = await api('/api/insights/activity');
+    const graph = document.getElementById('contributionGraph');
+    if (graph) {
+      graph.innerHTML = '';
+      
+      const today = new Date();
+      const days = [];
+      for (let i = 89; i >= 0; i--) {
+        const d = new Date(today);
+        d.setDate(d.getDate() - i);
+        days.push(d.toISOString().split('T')[0]);
+      }
+      
+      const counts = Object.values(res);
+      const maxCount = counts.length ? Math.max(...counts) : 1;
+      
+      for (const day of days) {
+        const count = res[day] || 0;
+        const cell = document.createElement('div');
+        cell.title = `${count} commits on ${day}`;
+        cell.style.width = '12px';
+        cell.style.height = '12px';
+        cell.style.borderRadius = '2px';
+        
+        if (count === 0) {
+          cell.style.background = 'var(--border)';
+        } else {
+          const intensity = Math.max(0.3, Math.min(1, count / maxCount));
+          if (intensity <= 0.3) cell.style.background = 'color-mix(in srgb, var(--accent) 30%, transparent)';
+          else if (intensity <= 0.6) cell.style.background = 'color-mix(in srgb, var(--accent) 60%, transparent)';
+          else if (intensity <= 0.85) cell.style.background = 'color-mix(in srgb, var(--accent) 85%, transparent)';
+          else cell.style.background = 'var(--accent)';
+        }
+        graph.appendChild(cell);
+      }
+    }
+    _insightsLoaded = true;
+  } catch (err) {
+    console.error('Failed to load insights', err);
+  }
+}
+
+const standupBtn = document.getElementById('standupButton');
+if (standupBtn) {
+  standupBtn.addEventListener('click', async () => {
+    if (!state.tier || state.tier === 'free') {
+      document.getElementById('upgradeModal').showModal();
+      return;
+    }
+    
+    standupBtn.disabled = true;
+    standupBtn.textContent = 'Generating... (This takes a few seconds)';
+    
+    try {
+      const res = await api('/api/ai/standup', { method: 'POST' });
+      const dialog = document.getElementById('standupDialog');
+      const content = document.getElementById('standupContent');
+      
+      // Basic markdown to HTML
+      let html = res.standup
+        .replace(/\\*\\*(.*?)\\*\\*/g, '<strong>$1</strong>')
+        .replace(/\\*(.*?)\\*/g, '<em>$1</em>')
+        .replace(/\\n/g, '<br>');
+        
+      content.innerHTML = `<div style="font-family: inherit; line-height: 1.6; color: var(--text);">${html}</div>`;
+      dialog.showModal();
+    } catch (err) {
+      showToast(err.message, 'error');
+      if (err.message.includes('API Key')) {
+        document.querySelector('[data-target="tab-settings"]').click();
+      }
+    } finally {
+      standupBtn.disabled = false;
+      standupBtn.textContent = 'Generate AI Standup';
+    }
+  });
+}

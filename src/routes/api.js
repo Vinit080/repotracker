@@ -5,7 +5,7 @@ import { promisify } from 'node:util';
 import { randomBytes } from 'node:crypto';
 import { CONFIG_FILE, META_FILE, DEFAULT_CONFIG } from '../constants.js';
 import { readJson, writeJson, writeJsonIfMissing, normalizeConfig, readRequestJson, sendJson, sanitizeConfigForResponse } from '../utils.js';
-import { scanRepos, runGit, detectScripts } from '../git.js';
+import { scanRepos, runGit, detectScripts, getCommitActivity, getStandupData } from '../git.js';
 import { hashPassword, verifyPassword, createSession, destroySession, isValidSession } from '../security.js';
 import { notifyDesktop } from '../notify.js';
 import os from 'node:os';
@@ -1287,6 +1287,90 @@ Respond in concise markdown format.`;
       sendJson(response, 200, { ok: true, restoredAt: merged.lastGistSync, roots: merged.roots });
     } catch (err) {
       sendJson(response, 500, { error: err.name === 'TimeoutError' ? 'GitHub request timed out' : err.message });
+    }
+    return;
+  }
+
+  // ── Insight Charts & AI Standup ──────────────────────────────────────────
+  if (request.method === 'GET' && requestUrl.pathname === '/api/insights/activity') {
+    try {
+      const meta = await readJson(META_FILE, {});
+      const scanData = await scanRepos(config, meta);
+      const allPaths = scanData.repos.map(r => r.path);
+      
+      const results = await Promise.all(
+        allPaths.map(p => getCommitActivity(p, 90))
+      );
+      
+      const counts = {};
+      results.flat().forEach(date => {
+        counts[date] = (counts[date] || 0) + 1;
+      });
+      
+      sendJson(response, 200, counts);
+    } catch (err) {
+      sendJson(response, 500, { error: err.message });
+    }
+    return;
+  }
+
+  if (request.method === 'POST' && requestUrl.pathname === '/api/ai/standup') {
+    if (!config.aiApiKey) {
+      sendJson(response, 400, { error: 'AI API Key is missing. Please configure it in Settings.' });
+      return;
+    }
+    try {
+      const meta = await readJson(META_FILE, {});
+      const scanData = await scanRepos(config, meta);
+      const allPaths = scanData.repos.map(r => r.path);
+      
+      const results = await Promise.all(
+        allPaths.map(p => getStandupData(p, 7))
+      );
+      
+      const activeRepos = results.filter(Boolean);
+      
+      if (!activeRepos.length) {
+        sendJson(response, 200, { standup: 'No recent activity found across your repositories in the last 7 days.' });
+        return;
+      }
+
+      let promptContext = 'Here is my local git activity across multiple repositories from the last 7 days:\\n\\n';
+      for (const repo of activeRepos) {
+        promptContext += `Repository: ${repo.name}\\n`;
+        if (repo.commits.length) {
+          promptContext += `Recent Commits:\\n${repo.commits.map(c => `  - ${c}`).join('\\n')}\\n`;
+        }
+        if (repo.status.length) {
+          promptContext += `Uncommitted Changes (git status --short):\\n${repo.status.map(s => `  - ${s}`).join('\\n')}\\n`;
+        }
+        promptContext += '\\n';
+      }
+
+      promptContext += `\\nAct as a brilliant engineering manager doing a weekly standup review for me. 
+Based on this raw data, write a beautifully formatted markdown summary of:
+1. What I accomplished this week.
+2. What is currently left hanging (uncommitted work).
+Keep it encouraging, concise, and professional.`;
+
+      const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${config.aiApiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: promptContext }] }],
+          generationConfig: { temperature: 0.4 }
+        })
+      });
+
+      const geminiData = await geminiRes.json();
+      if (!geminiRes.ok) {
+        throw new Error(geminiData.error?.message || 'Gemini API failed');
+      }
+
+      const standupText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || 'No response generated.';
+      sendJson(response, 200, { standup: standupText });
+    } catch (err) {
+      sendJson(response, 500, { error: err.message });
     }
     return;
   }
