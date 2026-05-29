@@ -1,15 +1,18 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import os from 'node:os';
 
 export const __dirname = path.dirname(fileURLToPath(import.meta.url));
-export const DATA_DIR = path.join(__dirname, '..', 'data');
+
+export const APP_ROOT = path.join(__dirname, '..');
+export const DATA_DIR = path.join(os.homedir(), '.repotracker');
 export const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 export const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
 export const META_FILE = path.join(DATA_DIR, 'repo-meta.json');
 export const ACTIVITY_FILE = path.join(DATA_DIR, 'activity.json');
 export const INSTALL_ID_FILE = path.join(DATA_DIR, 'install.json');
 export const PORT = Number(process.env.PORT || 4177);
-export const DEFAULT_ROOT = path.resolve(__dirname, '..', '..');
+export const DEFAULT_ROOT = os.homedir();
 
 // Team mode: bind to all interfaces so LAN teammates can connect
 export const TEAM_MODE = process.env.REPOTRACKER_TEAM === '1' || process.argv.includes('--team');

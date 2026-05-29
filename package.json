@@ -21,10 +21,17 @@
   ],
   "private": true,
   "type": "module",
+  "bin": "src/server.js",
+  "pkg": {
+    "assets": [
+      "public/**/*"
+    ]
+  },
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "team": "cross-env REPOTRACKER_TEAM=1 node src/server.js",
+    "build": "node scripts/build.js",
     "docker:build": "docker build -t repotracker .",
     "docker:up": "docker compose up -d",
     "postinstall": "node src/setup-vendor.js"
@@ -39,7 +46,9 @@
     "xterm-addon-fit": "^0.8.0"
   },
   "devDependencies": {
+    "caxa": "^3.0.1",
     "cross-env": "^7.0.3",
-    "nodemon": "^3.1.0"
+    "nodemon": "^3.1.0",
+    "pkg": "^5.8.1"
   }
 }
