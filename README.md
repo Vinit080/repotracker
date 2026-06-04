@@ -1,13 +1,13 @@
 <div align="center">
 
-<img src="https://img.shields.io/badge/RepoTracker-v1.0.6-6366f1?style=for-the-badge&logoColor=white" alt="RepoTracker v1.0.6">
+<img src="https://img.shields.io/badge/RepoTracker-v1.0.8-6366f1?style=for-the-badge&logoColor=white" alt="RepoTracker v1.0.8">
 
 **Your intelligent, local-first Git mission control.**
 
 RepoTracker automatically discovers, monitors, and manages every Git repository on your machine — from a single, stunning `localhost` dashboard. No cloud. No subscription. No tracking. Your code stays on your computer.
 
 <p>
-  <a href="https://github.com/Vinit080/repotracker/releases"><img src="https://img.shields.io/badge/version-1.0.6-blueviolet?style=flat-square" alt="Version"></a>
+  <a href="https://github.com/Vinit080/repotracker/releases"><img src="https://img.shields.io/badge/version-1.0.8-blueviolet?style=flat-square" alt="Version"></a>
   <a href="https://github.com/Vinit080/repotracker/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-source--available-orange?style=flat-square" alt="License"></a>
   <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/node-%3E%3D20-brightgreen?style=flat-square&logo=node.js" alt="Node.js"></a>
   <a href="https://github.com/Vinit080/repotracker/stargazers"><img src="https://img.shields.io/github/stars/Vinit080/repotracker?style=flat-square&color=gold" alt="GitHub Stars"></a>
