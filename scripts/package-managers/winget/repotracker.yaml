@@ -1,0 +1,12 @@
+PackageIdentifier: Vinit080.RepoTracker
+PackageVersion: 0.3.1
+PackageName: RepoTracker
+Publisher: Vinzone
+License: MIT
+ShortDescription: Intelligent local Git repository manager with AI-powered commit messages and health scoring.
+Installers:
+  - Architecture: x64
+    InstallerType: nullsoft
+    InstallerUrl: https://github.com/Vinit080/repotracker/releases/download/v0.3.1/RepoTracker-0.3.1-setup.exe
+ManifestType: singleton
+ManifestVersion: 1.2.0

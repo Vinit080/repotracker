@@ -11,6 +11,7 @@ export const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
 export const META_FILE = path.join(DATA_DIR, 'repo-meta.json');
 export const ACTIVITY_FILE = path.join(DATA_DIR, 'activity.json');
 export const INSTALL_ID_FILE = path.join(DATA_DIR, 'install.json');
+export const WORKSPACE_DIR = path.join(DATA_DIR, 'workspace'); // Git backend for Team Workspace
 export const PORT = Number(process.env.PORT || 4177);
 export const DEFAULT_ROOT = os.homedir();
 
@@ -18,8 +19,8 @@ export const DEFAULT_ROOT = os.homedir();
 export const TEAM_MODE = process.env.REPOTRACKER_TEAM === '1' || process.argv.includes('--team');
 export const BIND_HOST = TEAM_MODE ? '0.0.0.0' : '127.0.0.1';
 
-// Anonymous opt-in install counter (no repos, no paths, no personal data)
-export const PING_URL = process.env.PING_URL || 'https://lucky-dream-377a.coolboychakane08.workers.dev/count';
+// Anonymous opt-in install counter — only active if PING_URL env var is set
+export const PING_URL = process.env.PING_URL || '';
 
 export const DEFAULT_CONFIG = {
   roots: [],
@@ -32,12 +33,16 @@ export const DEFAULT_CONFIG = {
   onboardingComplete: false,
   gistSyncId: '',
   lastGistSync: null,
-  licenseKey: '',           // LemonSqueezy UUID or RT-PRO-... offline key
-  licenseTier: '',          // 'pro' | 'team' | '' — set during activation
-  licenseInstanceId: null,  // LS instance ID — needed to deactivate and free the slot
-  licenseActivatedAt: null, // ISO timestamp of activation
-  teamTokens: [],     // [{ token, label, createdAt }] invite links for team mode
+  teamTokens: [],           // Array of valid invite tokens for Team mode
+  workspaceRepo: '',  // GitHub repo URL for Team Cloud Workspace
+  workspaceLastSync: null,
   pingOptIn: null,    // null=not asked, true=opted in, false=opted out
+  // Phase 3 Integrations
+  slackWebhookUrl: '',
+  linearApiKey: '',
+  jiraDomain: '',
+  jiraEmail: '',
+  jiraApiToken: '',
 };
 
 export const SKIP_DIRS = new Set([

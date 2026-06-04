@@ -25,12 +25,14 @@ import { writeJsonIfMissing, sendText, sendJson, readJson, writeJson, normalizeC
 import { handleApi, handleUpgrade } from './routes/api.js';
 import { scanRepos } from './git.js';
 import { notifyDesktop } from './notify.js';
-import { applySecurityHeaders, isAllowedHost, isAllowedOrigin, checkRateLimit, cleanupExpired, hashPassword, isHashValid, loadSessions } from './security.js';
+import { applySecurityHeaders, isAllowedHost, isAllowedOrigin, checkRateLimit, cleanupExpired, hashPassword, isHashValid, loadSessions, isValidSession } from './security.js';
 import { generateDashboardExport } from './export.js';
 import { META_FILE } from './constants.js';
 
 // AI endpoints use the user's own API key — exempt from server-side rate limiting.
-const AI_PATHS = new Set(['/api/standup', '/api/repos/aisync', '/api/repos/ai-review']);
+const AI_PATHS = new Set(['/api/v1/standup', '/api/v1/repos/aisync', '/api/v1/repos/ai-review', '/api/v1/repos/ai-autofix', '/api/v1/repos/ai-chat', '/api/v1/ai/standup']);
+// Integration endpoints: outbound calls to 3rd-party APIs — tighter bucket (10/min)
+const INTEGRATION_PATHS = new Set(['/api/v1/integrations/issues', '/api/v1/integrations/slack']);
 
 async function ensureDataFiles() {
   await fs.mkdir(DATA_DIR, { recursive: true });
@@ -106,23 +108,34 @@ const server = http.createServer(async (request, response) => {
     }
 
     // M6: ensureDataFiles is called once at startup — not per-request
-    if (request.url?.startsWith('/api/')) {
+    if (request.url?.startsWith('/api/v1/')) {
       // ── Per-IP rate limiting (AI endpoints exempt) ────────────────────────
       const ip = request.socket.remoteAddress ?? 'unknown';
       const pathname = new URL(request.url, 'http://localhost').pathname;
 
-      if (pathname === '/api/login') {
+      if (pathname === '/api/v1/login') {
         if (!checkRateLimit('login', ip, 10, 60_000)) {
           sendJson(response, 429, { error: 'Too many login attempts. Try again later.' });
           return;
         }
-      } else if (pathname === '/api/verify-github-token') {
+      } else if (pathname === '/api/v1/verify-github-token') {
         // Stricter bucket — unauthenticated endpoint that hits GitHub's API
         if (!checkRateLimit('gh-verify', ip, 5, 15 * 60_000)) {
           sendJson(response, 429, { error: 'Too many token verification attempts. Try again in 15 minutes.' });
           return;
         }
-      } else if (!AI_PATHS.has(pathname)) {
+      } else if (INTEGRATION_PATHS.has(pathname)) {
+        if (!checkRateLimit('integrations', ip, 10, 60_000)) {
+          sendJson(response, 429, { error: 'Too many integration requests. Try again in a minute.' });
+          return;
+        }
+      } else if (AI_PATHS.has(pathname)) {
+        // AI endpoints: user's own API key — allow 10/min to cap abuse
+        if (!checkRateLimit('ai', ip, 10, 60_000)) {
+          sendJson(response, 429, { error: 'Too many AI requests. Try again in a minute.' });
+          return;
+        }
+      } else {
         if (!checkRateLimit('general', ip, 60, 60_000)) {
           sendJson(response, 429, { error: 'Too many requests. Try again later.' });
           return;
@@ -136,11 +149,21 @@ const server = http.createServer(async (request, response) => {
     // GET /export — generate and serve a self-contained HTML snapshot export
     const pathname2 = new URL(request.url, 'http://localhost').pathname;
     if (request.method === 'GET' && pathname2 === '/export') {
+      // Auth guard: export contains all repo data — require a valid session if password is set
+      const exportConfig = normalizeConfig(await readJson(CONFIG_FILE, DEFAULT_CONFIG));
+      if (exportConfig.appPasswordHash) {
+        const cookies = request.headers.cookie || '';
+        const match = cookies.match(/(^|;\s*)repo_auth=([^;]+)/);
+        const token = match ? match[2] : (request.headers.authorization?.replace('Bearer ', '') || '');
+        if (!isValidSession(token)) {
+          sendText(response, 401, 'Unauthorized');
+          return;
+        }
+      }
       try {
-        const config = normalizeConfig(await readJson(CONFIG_FILE, DEFAULT_CONFIG));
         const meta   = await readJson(META_FILE, {});
-        const scanData = await scanRepos(config, meta);
-        const html = generateDashboardExport(scanData, config);
+        const scanData = await scanRepos(exportConfig, meta);
+        const html = generateDashboardExport(scanData, exportConfig);
         const buf = Buffer.from(html, 'utf8');
         response.writeHead(200, {
           'Content-Type': 'text/html; charset=utf-8',
@@ -149,8 +172,14 @@ const server = http.createServer(async (request, response) => {
         });
         response.end(buf);
       } catch (err) {
-        sendText(response, 500, 'Export failed: ' + err.message);
+        console.error('[Export error]', err);
+        sendText(response, 500, 'Export failed');
       }
+      return;
+    }
+
+    if (request.url?.startsWith('/api/')) {
+      sendJson(response, 404, { error: 'Unknown or unsupported API route' });
       return;
     }
 
@@ -192,6 +221,21 @@ async function runWorkerCycle() {
 async function startBackgroundWorker() {
   await runWorkerCycle(); // L5: run immediately on boot, then every 60 minutes
   setInterval(runWorkerCycle, 60 * 60 * 1000);
+
+  // Background Workspace Sync (every 5 mins)
+  setInterval(async () => {
+    if (TEAM_MODE) {
+      const config = normalizeConfig(await readJson(CONFIG_FILE, DEFAULT_CONFIG));
+      if (config.workspaceRepo && config.githubPat && config.userName) {
+        const { syncWorkspace } = await import('./sync.js');
+        const res = await syncWorkspace(config);
+        if (res.ok) {
+          const newConfig = normalizeConfig({ ...config, workspaceLastSync: res.syncedAt });
+          await writeJson(CONFIG_FILE, newConfig);
+        }
+      }
+    }
+  }, 5 * 60 * 1000);
 }
 
 // ── LAN IP Detection (for Team Mode) ─────────────────────────────────────────
@@ -216,7 +260,7 @@ async function sendInstallPing(config) {
     await fetch(PING_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: installId, version: '0.2.0', platform: process.platform }),
+      body: JSON.stringify({ id: installId, version: process.env.npm_package_version || '0.0.0', platform: process.platform }),
       signal: AbortSignal.timeout(5000),
     }).catch(() => {}); // silent fail — never crash on ping
     await writeJson(INSTALL_ID_FILE, { id: installId, pinged: true, ts: Date.now() });
@@ -228,13 +272,24 @@ server.listen(PORT, BIND_HOST, async () => {
     const lanIp = getLanIp();
     console.log('');
     console.log('  ┌──────────────────────────────────────────────────┐');
-    console.log('  │  🚀 RepoTracker v0.2.0  —  TEAM MODE             │');
+    console.log('  │  🚀 RepoTracker v1.0.0  —  TEAM MODE             │');
     console.log(`  │  Solo:  http://localhost:${PORT}                    │`);
     if (lanIp) console.log(`  │  Team:  http://${lanIp}:${PORT}             │`);
     console.log('  └──────────────────────────────────────────────────┘');
     console.log('');
   } else {
-    console.log(`RepoTracker v0.2.0 running at http://localhost:${PORT}`);
+    console.log(`RepoTracker v1.0.0 running at http://localhost:${PORT}`);
+      if (!process.versions.electron) {
+        import('node:child_process').then(({ execFile }) => {
+          const url = `http://localhost:${PORT}`;
+          const [cmd, args] = process.platform === 'win32'
+            ? ['cmd.exe', ['/c', 'start', url]]
+            : process.platform === 'darwin'
+              ? ['open', [url]]
+              : ['xdg-open', [url]];
+          execFile(cmd, args, { shell: false }).catch(() => {});
+        });
+      }
   }
   console.log(`Scanning roots from ${CONFIG_FILE}`);
   await ensureDataFiles();
@@ -243,8 +298,22 @@ server.listen(PORT, BIND_HOST, async () => {
   const { readJson: _rj, normalizeConfig: _nc } = await import('./utils.js');
   const _cfg = _nc(await _rj(CONFIG_FILE, DEFAULT_CONFIG));
   sendInstallPing(_cfg).catch(() => {});
-  startBackgroundWorker();
-  setInterval(cleanupExpired, 5 * 60 * 1000);
+  startBackgroundWorker().catch(err => console.error('Worker startup failed:', err));
+  const cleanupInterval = setInterval(cleanupExpired, 5 * 60 * 1000);
+
+  // ── Graceful shutdown ─────────────────────────────────────────────────────
+  function shutdown(signal) {
+    console.log(`\n${signal} received — shutting down gracefully...`);
+    clearInterval(cleanupInterval);
+    server.close(() => {
+      console.log('HTTP server closed.');
+      process.exit(0);
+    });
+    // Force-exit after 10s if connections are still open
+    setTimeout(() => process.exit(0), 10_000).unref();
+  }
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT',  () => shutdown('SIGINT'));
 });
 
 

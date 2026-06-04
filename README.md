@@ -1,13 +1,13 @@
 <div align="center">
 
-<img src="https://img.shields.io/badge/RepoTracker-v0.3.0-6366f1?style=for-the-badge&logoColor=white" alt="RepoTracker v0.3.0">
+<img src="https://img.shields.io/badge/RepoTracker-v1.0.0-6366f1?style=for-the-badge&logoColor=white" alt="RepoTracker v1.0.0">
 
 **Your intelligent, local-first Git mission control.**
 
 RepoTracker automatically discovers, monitors, and manages every Git repository on your machine — from a single, stunning `localhost` dashboard. No cloud. No subscription. No tracking. Your code stays on your computer.
 
 <p>
-  <a href="https://github.com/Vinit080/repotracker/releases"><img src="https://img.shields.io/badge/version-0.3.0-blueviolet?style=flat-square" alt="Version"></a>
+  <a href="https://github.com/Vinit080/repotracker/releases"><img src="https://img.shields.io/badge/version-1.0.0-blueviolet?style=flat-square" alt="Version"></a>
   <a href="https://github.com/Vinit080/repotracker/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-source--available-orange?style=flat-square" alt="License"></a>
   <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/node-%3E%3D20-brightgreen?style=flat-square&logo=node.js" alt="Node.js"></a>
   <a href="https://github.com/Vinit080/repotracker/stargazers"><img src="https://img.shields.io/github/stars/Vinit080/repotracker?style=flat-square&color=gold" alt="GitHub Stars"></a>
@@ -37,14 +37,14 @@ RepoTracker automatically discovers, monitors, and manages every Git repository 
 | **🔔 Smart Alerts** | Desktop notifications when repos fall 5+ commits behind, have 20+ dirty files, or go stale |
 | **🌐 GitHub Browser** | Browse all your GitHub repos (public + private) in the Ecosystem tab and clone with one click |
 
-### 🤖 AI Features *(Pro)*
+### 🤖 AI Features
 | Feature | Description |
 |---|---|
 | **🪄 AI Git Sync** | Generate perfect commit messages via Gemini AI and push with one click |
 | **🔍 AI Code Review** | Analyze uncommitted diffs for bugs, security issues, and quality problems *before* committing |
 | **📋 Weekly Standup** | AI-generated standup report from your last 7 days of commits |
 
-### ☁️ Sync & Config *(Pro)*
+### ☁️ Sync & Config
 | Feature | Description |
 |---|---|
 | **☁️ Gist Config Sync** | Sync your roots, settings, and tags to a private GitHub Gist. Restore on any machine in seconds |
@@ -59,7 +59,7 @@ RepoTracker automatically discovers, monitors, and manages every Git repository 
 | **📋 Activity Log** | Local-first log of AI syncs, reviews, branch ops, and terminal sessions with relative timestamps |
 | **🔄 Auto-Updater** | Polls GitHub Releases for new versions and updates in one click |
 
-### 👥 Team Mode *(Team)*
+### 👥 Team Mode
 | Feature | Description |
 |---|---|
 | **🌐 LAN Dashboard** | Run `npm run team` to broadcast your dashboard to teammates over your local network |
@@ -110,19 +110,7 @@ Open **[http://localhost:4177](http://localhost:4177)** in your browser. The set
 
 ## 🔑 Licensing
 
-RepoTracker is **free** for personal use. Core features are always free, forever.
-
-| Tier | Price | What's included |
-|---|---|---|
-| **Free** | $0 forever | Auto-discovery, health scoring, branch manager, search, Shelby terminal, smart alerts, GitHub browser |
-| **Pro** | $29 one-time | Everything free + AI Code Review, AI Git Sync, Weekly Standup, Gist Sync, WakaTime, Pomodoro, Dashboard Export |
-| **Team** | $79 one-time | Everything Pro + LAN dashboard (5 seats), invite tokens, team standup reports |
-
-> **One-time payment. No subscription. No recurring charges. Ever.**
-
-[**→ Get a Pro or Team license**](https://repotracker.lemonsqueezy.com)
-
-Enter your license key in **Settings → License** inside the app. The key is validated once and stored locally — fully offline after activation.
+RepoTracker is **100% free and open-source**. All features, including AI Code Review, Team Mode, and Gist Sync, are unlocked and available to use up to your potential.
 
 ---
 
@@ -138,10 +126,6 @@ cp .env.example .env
 |---|---|---|
 | `PORT` | Server port (default: `4177`) | Optional |
 | `REPOTRACKER_TEAM` | Set to `1` to enable LAN Team Mode | Optional |
-| `LEMONSQUEEZY_API_KEY` | License key validation via LemonSqueezy API | For paid license validation |
-| `LEMONSQUEEZY_STORE_ID` | Your LS store ID | For paid license validation |
-| `LEMONSQUEEZY_PRO_PRODUCT_ID` | Pro product ID | For paid license validation |
-| `LEMONSQUEEZY_TEAM_PRODUCT_ID` | Team product ID | For paid license validation |
 | `PING_URL` | Anonymous install counter endpoint | Optional |
 
 ---
@@ -162,7 +146,6 @@ repotracker/
 │   ├── server.js          # HTTP server, .env loader, static file serving, sessions
 │   ├── routes/api.js      # All 37 API route handlers
 │   ├── git.js             # Git command execution & repo scanning
-│   ├── license.js         # License lifecycle — LS activate/deactivate/validate
 │   ├── security.js        # PBKDF2 hashing, session tokens, rate limiting, CSP
 │   ├── activity.js        # Local-first activity log (no cloud)
 │   ├── export.js          # Self-contained HTML dashboard export
@@ -177,7 +160,7 @@ repotracker/
 │   ├── ping-counter.js    # Anonymous opt-in install counter (Cloudflare Worker)
 │   └── DEPLOY.md          # 5-minute deploy guide
 ├── data/                  # Runtime data (gitignored)
-│   ├── config.json        # User config — roots, API keys, license tier
+│   ├── config.json        # User config — roots, API keys
 │   └── meta.json          # Repo metadata cache & notification cooldown state
 ├── .env                   # Server secrets (gitignored)
 ├── .env.example           # Template — safe to commit
@@ -212,7 +195,6 @@ See [SECURITY.md](./SECURITY.md) for the full threat model and vulnerability rep
 - Content-Security-Policy headers on every response
 - All shell inputs validated with allowlist regex — no raw string interpolation, ever
 - API keys stored server-side only — only masked sentinels (`••• (saved)`) sent to browser
-- License key stored locally — validated once via LemonSqueezy, then fully offline
 - Path traversal guards on all file read/write operations
 
 ---
@@ -222,10 +204,10 @@ See [SECURITY.md](./SECURITY.md) for the full threat model and vulnerability rep
 | Version | Status | Focus |
 |---|---|---|
 | **v0.1.0** | ✅ Released | Core dashboard, health scoring, AI sync, Shelby terminal, WakaTime |
-| **v0.2.0** | ✅ Released | AI Code Review, Branch Manager, Gist Sync, Pomodoro, Ecosystem tab, GitHub browser, Smart notifications, LemonSqueezy licensing, full security audit |
+| **v0.2.0** | ✅ Released | AI Code Review, Branch Manager, Gist Sync, Pomodoro, Ecosystem tab, GitHub browser, Smart notifications, full security audit |
 | **v0.3.0** | 🔜 Planned | Custom workflow pipelines — chain Setup → Test → Build → Commit into 1-click automations. Compiled binary distribution (`.exe`, `.dmg`) |
 | **v0.4.0** | 🔜 Planned | Global Dependency Graph — force-directed visual map of cross-repo dependencies and shared packages |
-| **v1.0.0** | 🔜 Planned | Native desktop app via Tauri — system tray, OS-level file watcher, no browser required |
+| **v1.0.0** | ✅ Released | The stable API v1 release. Formal API versioning (`/api/v1/`), gracefully handling AI load, maximum security audit pass, completely free pricing. |
 
 > ⭐ [Star us on GitHub](https://github.com/Vinit080/repotracker) · 💬 [Discussions](https://github.com/Vinit080/repotracker/discussions) · 🐛 [Issues](https://github.com/Vinit080/repotracker/issues)
 
@@ -245,7 +227,6 @@ Contributions, bug reports, and feature requests are welcome.
 
 ## 📄 License
 
-Source-available. Free for personal, non-commercial use.
-Commercial use, removing license restrictions, or redistributing the software requires a paid license.
+MIT License. Free and open source. Use it up to your potential!
 
 © 2026 [Vinzone](https://github.com/Vinit080) — Built with ❤️ for developers who care about their Git hygiene.

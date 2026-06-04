@@ -3,60 +3,28 @@ name: Build and Release
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - 'v*'
 
 jobs:
-  build:
-    name: Build on ${{ matrix.os }}
+  release:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [windows-latest, macos-latest, ubuntu-latest]
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - name: Check out Git repository
+        uses: actions/checkout@v3
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - name: Install Node.js
+        uses: actions/setup-node@v3
         with:
           node-version: 20
-          cache: 'npm'
 
-      - name: Install dependencies
+      - name: Install Dependencies
         run: npm ci
 
-      - name: Build executable
-        run: npm run build
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: RepoTracker-${{ matrix.os }}
-          path: dist/RepoTracker*
-
-  release:
-    name: Create GitHub Release
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: dist-artifacts
-
-      - name: Prepare Release Assets
-        run: |
-          mkdir -p release-assets
-          cp dist-artifacts/RepoTracker-ubuntu-latest/RepoTracker-linux release-assets/ || true
-          cp dist-artifacts/RepoTracker-macos-latest/RepoTracker-macos release-assets/ || true
-          cp dist-artifacts/RepoTracker-windows-latest/RepoTracker-win.exe release-assets/ || true
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: release-assets/*
+      - name: Build and Release Electron App
+        run: npm run build:electron -- --publish always
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

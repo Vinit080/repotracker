@@ -64,13 +64,7 @@
             </svg>
           </button>
           <div class="dropdown-menu" id="dropdownMenu">
-            <div class="dropdown-section">
-              <span class="dropdown-label">Subscription</span>
-              <button class="dropdown-item" id="navUpgradeBtn" style="color:var(--accent);">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-                Manage Team Plan
-              </button>
-            </div>
+
             <div class="dropdown-section">
               <span class="dropdown-label">Tools</span>
               <button class="dropdown-item" id="pomodoroBtn">
@@ -101,6 +95,26 @@
             </div>
           </div>
         </div>
+        
+        <button class="ghost" id="myTicketsBtn" type="button" title="View assigned issues across Jira, Linear, and GitHub" style="gap:8px;font-size:0.88rem;font-weight:600;padding:0 14px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+              <polyline points="10 9 9 9 8 9"></polyline>
+            </svg>
+            My Tickets
+        </button>
+
+        <button class="primary hidden" id="updateReadyBtn" type="button" style="gap:8px;font-size:0.88rem;font-weight:600;padding:0 14px;background:var(--accent);color:#000;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+            <polyline points="17 6 23 6 23 12"></polyline>
+          </svg>
+          Update Ready
+        </button>
+
         <button class="ghost icon-button" id="themeToggleBtn" type="button" aria-label="Toggle Theme" style="padding:0 10px;">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="5"></circle>
@@ -256,27 +270,41 @@
       <!-- TEAM TAB -->
       <div id="tab-team" class="tab-pane">
         <div style="max-width:760px;margin:0 auto;padding:24px 0;">
-          <h2 style="margin-bottom:8px;">Team Mode</h2>
-          <p class="muted" style="margin-bottom:32px;">Share your dashboard with teammates over your local network.</p>
+          <h2 style="margin-bottom:8px;">Team Workspace</h2>
+          <p class="muted" style="margin-bottom:32px;">Connect to your team's shared workspace repository to sync dashboard data.</p>
+          
           <div class="settings-panel" style="padding:32px;">
             <div style="display:flex;align-items:center;gap:16px;margin-bottom:24px;">
               <div style="width:48px;height:48px;border-radius:12px;background:color-mix(in srgb,var(--accent) 15%,transparent);display:flex;align-items:center;justify-content:center;">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
               </div>
               <div>
-                <h3 style="margin:0 0 4px;">Start Team Session</h3>
-                <p class="muted" style="margin:0;font-size:0.9rem;">Run <code style="background:var(--panel-strong);padding:2px 6px;border-radius:4px;">npm run team</code> in your terminal to broadcast on LAN.</p>
+                <h3 style="margin:0 0 4px;">Connect to Workspace</h3>
+                <p class="muted" style="margin:0;font-size:0.9rem;">Requires a private GitHub repository.</p>
               </div>
             </div>
-            <div id="teamStatusPanel" style="background:var(--panel-strong);border-radius:8px;padding:20px;margin-bottom:20px;">
-              <div style="display:flex;align-items:center;gap:10px;">
-                <div id="teamStatusDot" style="width:10px;height:10px;border-radius:50%;background:var(--muted);"></div>
-                <span id="teamStatusText" class="muted">Not active — start with <strong>npm run team</strong></span>
+            
+            <div id="workspaceSetupPanel">
+              <label>
+                <span>Workspace Repository URL</span>
+                <input id="workspaceRepoInput" type="text" placeholder="https://github.com/your-org/repotracker-workspace.git" style="margin-bottom: 16px;">
+              </label>
+              <div style="font-size: 0.85rem; color: var(--muted); margin-bottom: 24px;">
+                Make sure you have added your <strong>GitHub PAT</strong> and <strong>Name</strong> in the Settings tab first.
               </div>
+              <button class="primary" id="initWorkspaceBtn" type="button">Connect & Sync</button>
+              <div id="workspaceSetupError" style="color: var(--danger); font-size: 0.85rem; margin-top: 12px; display: none;"></div>
             </div>
-            <div id="teamUrlRow" class="hidden" style="display:flex;align-items:center;gap:12px;">
-              <input id="teamShareUrl" type="text" readonly style="flex:1;font-family:monospace;font-size:0.9rem;">
-              <button class="ghost" id="copyTeamShareUrl" type="button">Copy URL</button>
+
+            <div id="workspaceStatusPanel" class="hidden" style="background:var(--panel-strong);border-radius:8px;padding:20px;margin-top:20px;">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom: 12px;">
+                <div id="teamStatusDot" style="width:10px;height:10px;border-radius:50%;background:#22c55e;"></div>
+                <span id="teamStatusText" class="muted"><strong>Workspace Connected</strong></span>
+              </div>
+              <div style="font-size: 0.85rem; color: var(--muted); display: flex; align-items: center; justify-content: space-between;">
+                <span id="workspaceLastSyncText">Last synced: Just now</span>
+                <button class="ghost btn-sm" id="syncWorkspaceBtn" type="button" style="padding: 4px 8px;">Sync Now</button>
+              </div>
             </div>
           </div>
         </div>
@@ -380,6 +408,59 @@
                 style="margin-top: 12px;">
             </div>
           </div>
+
+          <div class="integration-card">
+            <div class="integration-icon"
+              style="background: color-mix(in srgb, #4A154B 15%, transparent); color: #4A154B;">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+              </svg>
+            </div>
+            <div class="integration-content">
+              <div class="integration-header">
+                <h3>Slack Webhook</h3>
+              </div>
+              <p>Automatically post your AI Standup summaries to a Slack channel.</p>
+              <input id="slackWebhookInput" type="password" placeholder="https://hooks.slack.com/services/..." style="margin-top: 12px;">
+            </div>
+          </div>
+
+          <div class="integration-card">
+            <div class="integration-icon"
+              style="background: color-mix(in srgb, #5E6AD2 15%, transparent); color: #5E6AD2;">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="2" x2="12" y2="22"></line>
+                <line x1="2" y1="12" x2="22" y2="12"></line>
+              </svg>
+            </div>
+            <div class="integration-content">
+              <div class="integration-header">
+                <h3>Linear</h3>
+              </div>
+              <p>Pull your assigned issues from Linear.</p>
+              <input id="linearKeyInput" type="password" placeholder="lin_api_..." style="margin-top: 12px;">
+            </div>
+          </div>
+
+          <div class="integration-card">
+            <div class="integration-icon"
+              style="background: color-mix(in srgb, #0052CC 15%, transparent); color: #0052CC;">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+              </svg>
+            </div>
+            <div class="integration-content">
+              <div class="integration-header">
+                <h3>Jira</h3>
+              </div>
+              <p>Pull your assigned issues from Jira.</p>
+              <div style="display:flex;gap:8px;margin-top:12px;">
+                <input id="jiraDomainInput" type="text" placeholder="company.atlassian.net" style="flex:1;">
+                <input id="jiraEmailInput" type="email" placeholder="email@company.com" style="flex:1;">
+              </div>
+              <input id="jiraTokenInput" type="password" placeholder="Jira API Token" style="margin-top: 8px;">
+            </div>
+          </div>
           <menu>
             <button class="primary" id="saveSettingsButton" value="default">Save and scan</button>
           </menu>
@@ -389,87 +470,6 @@
   </div>
 
   <!-- MODALS -->
-
-  <!-- PRO/TEAM UPGRADE MODAL -->
-  <dialog id="upgradeModal" style="width:min(540px,calc(100% - 32px));padding:0;border:0;background:transparent;color:var(--text);">
-    <div style="background:var(--panel-bg);border:1px solid var(--border);border-radius:20px;overflow:hidden;box-shadow:0 32px 96px rgba(0,0,0,0.6);">
-
-      <!-- Header -->
-      <div style="padding:36px 36px 24px;background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 12%,transparent),transparent);border-bottom:1px solid var(--border);position:relative;">
-        <form method="dialog" style="position:absolute;top:16px;right:16px;">
-          <button id="upgradeModalClose" type="submit" style="background:var(--panel-strong);border:1px solid var(--border);border-radius:8px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);font-size:16px;line-height:1;">✕</button>
-        </form>
-        <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;">
-          <div style="width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,var(--accent),color-mix(in srgb,var(--accent) 60%,#818cf8));display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;box-shadow:0 8px 24px color-mix(in srgb,var(--accent) 40%,transparent);">
-            <span id="upgradeModalIcon">✨</span>
-          </div>
-          <div>
-            <h2 id="upgradeModalTitle" style="margin:0 0 4px;font-size:1.5rem;font-weight:700;">Upgrade to Pro</h2>
-            <p id="upgradeModalDesc" style="margin:0;font-size:0.88rem;color:var(--muted);line-height:1.4;max-width:340px;">One-time payment. Unlock AI features, cloud sync, and more — yours for life.</p>
-          </div>
-        </div>
-        <div style="display:inline-flex;align-items:center;gap:8px;background:color-mix(in srgb,var(--accent) 12%,transparent);border:1px solid color-mix(in srgb,var(--accent) 25%,transparent);border-radius:99px;padding:6px 14px;">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-          <span id="upgradeModalPrice" style="font-size:0.9rem;font-weight:700;color:var(--accent);">₹499 one-time</span>
-          <span style="font-size:0.82rem;color:var(--muted);">· no subscription ever</span>
-        </div>
-      </div>
-
-      <!-- Feature list -->
-      <div style="padding:24px 36px;display:grid;gap:10px;">
-        <p style="margin:0 0 4px;font-size:0.78rem;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);">What you unlock</p>
-        <div class="upgrade-feature-row" data-feature="ai_review" style="display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border-radius:10px;background:color-mix(in srgb,var(--accent) 6%,transparent);border:1px solid color-mix(in srgb,var(--accent) 15%,transparent);">
-          <span style="font-size:1.1rem;margin-top:1px;">🤖</span>
-          <div><strong style="font-size:0.9rem;">AI Code Reviewer</strong><p style="margin:2px 0 0;font-size:0.82rem;color:var(--muted);">Analyze diffs for bugs before committing. Get AI-powered code insights.</p></div>
-        </div>
-        <div class="upgrade-feature-row" data-feature="gist_sync" style="display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border-radius:10px;background:color-mix(in srgb,var(--accent) 6%,transparent);border:1px solid color-mix(in srgb,var(--accent) 15%,transparent);">
-          <span style="font-size:1.1rem;margin-top:1px;">☁️</span>
-          <div><strong style="font-size:0.9rem;">Cloud Config Sync</strong><p style="margin:2px 0 0;font-size:0.82rem;color:var(--muted);">Back up settings to a private GitHub Gist. Restore on any machine instantly.</p></div>
-        </div>
-        <div class="upgrade-feature-row" data-feature="pomodoro" style="display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border-radius:10px;background:color-mix(in srgb,var(--accent) 6%,transparent);border:1px solid color-mix(in srgb,var(--accent) 15%,transparent);">
-          <span style="font-size:1.1rem;margin-top:1px;">⏱</span>
-          <div><strong style="font-size:0.9rem;">Deep Work Pomodoro</strong><p style="margin:2px 0 0;font-size:0.82rem;color:var(--muted);">Focus timer with desktop notifications. 4-session cycle with long breaks.</p></div>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:8px;background:color-mix(in srgb,var(--success,#22c55e) 8%,transparent);font-size:0.82rem;color:var(--muted);">
-          <span>✅</span> AI Git Sync &amp; Commit is <strong>already free</strong> for your Core plan!
-        </div>
-        <div class="upgrade-feature-row" data-feature="team_mode" style="display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border-radius:10px;background:color-mix(in srgb,var(--accent) 6%,transparent);border:1px solid color-mix(in srgb,var(--accent) 15%,transparent);">
-          <span style="font-size:1.1rem;margin-top:1px;">👥</span>
-          <div><strong style="font-size:0.9rem;">Team Mode <span style="font-size:0.75rem;padding:2px 7px;border-radius:99px;background:color-mix(in srgb,#818cf8 20%,transparent);color:#818cf8;margin-left:4px;">Team ₹1499/yr</span></strong><p style="margin:2px 0 0;font-size:0.82rem;color:var(--muted);">Share your dashboard with teammates on the same network. Up to 5 seats.</p></div>
-        </div>
-      </div>
-
-      <!-- CTA -->
-      <div style="padding:0 36px 28px;">
-        <!-- Already have a key? -->
-        <details style="margin-bottom:16px;">
-          <summary style="font-size:0.82rem;color:var(--muted);cursor:pointer;user-select:none;">Already have a license key? Activate it here</summary>
-          <div style="margin-top:12px;display:flex;gap:8px;">
-            <input id="licenseKeyInput" type="text" placeholder="Paste your license key…" style="flex:1;font-family:monospace;letter-spacing:0.04em;font-size:0.9rem;padding:10px 12px;">
-            <button class="primary" id="activateLicenseBtn" type="button" style="padding:10px 18px;white-space:nowrap;">Activate</button>
-          </div>
-        </details>
-        <div style="display:flex;align-items:center;gap:12px;">
-          <a id="upgradeModalBtn" href="https://repotracker.lemonsqueezy.com/buy/pro" target="_blank" rel="noreferrer"
-            style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:14px;border-radius:10px;background:var(--accent);color:#fff;font-weight:700;font-size:0.95rem;text-decoration:none;transition:opacity 0.15s;box-shadow:0 4px 16px color-mix(in srgb,var(--accent) 40%,transparent);"
-            onmouseover="this.style.opacity='0.88'" onmouseout="this.style.opacity='1'">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
-            Get <span id="upgradeModalTier">Pro</span> — <span id="upgradeModalPriceCta">₹499</span>
-          </a>
-          <div style="font-size:0.78rem;color:var(--muted);text-align:center;line-height:1.4;">
-            <div>✓ One-time payment</div>
-            <div>✓ Lifetime license</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Social proof -->
-      <div style="padding:12px 36px;border-top:1px solid var(--border);background:var(--panel-strong);display:flex;align-items:center;gap:8px;">
-        <div style="display:flex;gap:1px;font-size:11px;color:#f59e0b;">★★★★★</div>
-        <p style="margin:0;font-size:0.78rem;color:var(--muted);">Used by developers who take their Git hygiene seriously. <a href="https://github.com/Vinit080/repotracker" target="_blank" rel="noreferrer" style="color:var(--accent);text-decoration:none;">★ Star us on GitHub</a></p>
-      </div>
-    </div>
-  </dialog>
 
   <dialog id="authDialog"
     style="background: var(--bg); color: var(--text); padding: 40px; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 20px 40px rgba(0,0,0,0.5); width: 400px; max-width: 90vw;">
@@ -497,7 +497,7 @@
       <div class="dialog-head">
         <h2>Select Clone Destination</h2>
         <form method="dialog">
-          <button class="icon-button" type="submit" value="cancel">x</button>
+          <button type="button" class="icon-button" onclick="document.getElementById('cloneDialog').close()">✕</button>
         </form>
       </div>
       <p class="muted" style="margin-top: 8px; margin-bottom: 16px;">Choose a folder to clone this repository into:</p>
@@ -513,7 +513,7 @@
     <div class="settings-panel">
       <div class="dialog-head">
         <h2>Global Search</h2>
-        <button class="icon-button" value="cancel" onclick="document.getElementById('searchDialog').close()">x</button>
+        <button type="button" class="icon-button" onclick="document.getElementById('searchDialog').close()">✕</button>
       </div>
       <input id="globalSearchInput" type="search" placeholder="Search across all repos (Ctrl+K)...">
       <div id="searchResults" class="stack" style="max-height: 400px; overflow-y: auto; margin-top: 16px;"></div>
@@ -524,13 +524,114 @@
     <div class="settings-panel" style="width: 800px; max-width: 90vw;">
       <div class="dialog-head">
         <h2>AI Standup Report</h2>
-        <button class="icon-button" value="cancel" onclick="document.getElementById('standupDialog').close()">x</button>
+        <button type="button" class="icon-button" onclick="document.getElementById('standupDialog').close()">✕</button>
       </div>
       <div id="standupContent"
-        style="max-height: 60vh; overflow-y: auto; margin-top: 16px; white-space: pre-wrap; font-size: 0.9rem; line-height: 1.5;">
+        style="max-height: 60vh; overflow-y: auto; margin-top: 16px; margin-bottom: 24px; white-space: pre-wrap; font-size: 0.9rem; line-height: 1.5;">
+      </div>
+      <div style="border-top: 1px solid var(--border); padding-top: 16px; display: flex; justify-content: flex-end; gap: 12px;">
+        <button type="button" class="ghost" onclick="document.getElementById('standupDialog').close()">Close</button>
+        <button type="button" class="primary hidden" id="postToSlackBtn" style="background: #4A154B;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px; transform: translateY(1px);"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+          Post to Slack
+        </button>
       </div>
     </div>
   </dialog>
+
+  <!-- AI REVIEW & AUTO-FIX MODAL -->
+  <dialog id="aiReviewDialog">
+    <div class="settings-panel" style="width: 800px; max-width: 90vw;">
+      <div class="dialog-head">
+        <h2>AI Code Review</h2>
+        <button type="button" class="icon-button" onclick="document.getElementById('aiReviewDialog').close()">✕</button>
+      </div>
+      <div id="aiReviewContent"
+        style="max-height: 50vh; overflow-y: auto; margin-top: 16px; margin-bottom: 24px; white-space: pre-wrap; font-size: 0.9rem; line-height: 1.5;">
+      </div>
+      <div style="border-top: 1px solid var(--border); padding-top: 16px; display: flex; justify-content: flex-end; gap: 12px;">
+        <button type="button" class="ghost" onclick="document.getElementById('aiReviewDialog').close()">Close</button>
+        <button type="button" class="primary" id="aiAutoFixBtn">
+          ✨ Auto-Fix Issues
+        </button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- AI CHAT SLIDE-OVER MODAL -->
+  <dialog id="aiChatModal" style="margin: 0 0 0 auto; height: 100vh; max-height: 100vh; width: 450px; border: none; background: var(--bg); border-left: 1px solid var(--border); box-shadow: -10px 0 30px rgba(0,0,0,0.5);">
+    <div style="display: flex; flex-direction: column; height: 100%;">
+      <div style="padding: 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; background: var(--panel-bg);">
+        <h2 style="margin: 0; font-size: 1.2rem; display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 1.4rem;">💬</span> Codebase Chat
+        </h2>
+        <button class="icon-button" onclick="document.getElementById('aiChatModal').close()">✕</button>
+      </div>
+      <div id="aiChatHistory" style="flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px;">
+        <div style="background: var(--panel-strong); padding: 12px 16px; border-radius: 12px; font-size: 0.9rem; align-self: flex-start; max-width: 85%; line-height: 1.4;">
+          Hi! I have read your <strong>repository structure</strong> and your <strong>current git diff</strong>. What would you like to know?
+        </div>
+      </div>
+      <div style="padding: 20px; border-top: 1px solid var(--border); background: var(--panel-bg);">
+        <form id="aiChatForm" style="display: flex; gap: 8px;">
+          <input type="text" id="aiChatInput" placeholder="Ask about this repo..." style="flex: 1; padding: 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--input-bg); color: var(--text);">
+          <button type="submit" class="primary" id="aiChatSubmitBtn" style="padding: 0 20px;">Send</button>
+        </form>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- MY TICKETS DIALOG -->
+  <dialog id="myTicketsDialog">
+    <div class="settings-panel" style="background: var(--panel-bg); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); padding: 24px; gap: 0;">
+
+      <!-- Header -->
+      <div class="tickets-header">
+        <div class="tickets-header-left">
+          <div class="tickets-icon-wrap">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+              <polyline points="10 9 9 9 8 9"></polyline>
+            </svg>
+          </div>
+          <div>
+            <h2 class="tickets-title">My Tickets</h2>
+            <p class="tickets-sub">Open issues assigned to you across all connected platforms</p>
+          </div>
+        </div>
+        <button type="button" class="tickets-close-btn" id="myTicketsCloseBtn" aria-label="Close">✕</button>
+      </div>
+
+      <!-- Source Filter Pills -->
+      <div class="tickets-filters" id="ticketsFilters">
+        <button type="button" class="ticket-filter-pill active" data-filter="all">
+          All <span class="tickets-count-badge" id="ticketCountAll">0</span>
+        </button>
+        <button type="button" class="ticket-filter-pill" data-filter="Jira">
+          <span class="pill-dot" style="background:#0052CC;"></span>
+          Jira <span class="tickets-count-badge" id="ticketCountJira">0</span>
+        </button>
+        <button type="button" class="ticket-filter-pill" data-filter="Linear">
+          <span class="pill-dot" style="background:#5E6AD2;"></span>
+          Linear <span class="tickets-count-badge" id="ticketCountLinear">0</span>
+        </button>
+        <button type="button" class="ticket-filter-pill" data-filter="GitHub">
+          <span class="pill-dot" style="background:#24292e;border:1px solid var(--border);"></span>
+          GitHub <span class="tickets-count-badge" id="ticketCountGitHub">0</span>
+        </button>
+      </div>
+
+      <!-- Ticket Rows -->
+      <div class="tickets-list" id="myTicketsList">
+        <!-- Injected by JS -->
+      </div>
+
+    </div>
+  </dialog>
+
 
   <!-- ONBOARDING WIZARD -->
   <div id="wizard">
@@ -801,13 +902,11 @@
         <button class="ghost setup-button" type="button"
           title="Pull latest code and automatically install dependencies">Pull &amp; Setup</button>
         <button class="ghost audit-button" type="button" title="Dependency Audit">Audit</button>
-        <button class="ghost aisync-button hidden" type="button" title="Auto-commit and push with AI">AI Sync
-          🪄</button>
+        <button class="ghost aisync-button hidden" type="button" title="Auto-commit and push with AI">AI Sync 🪄</button>
+        <button class="ghost ai-review-button hidden" type="button" title="Analyze with AI">AI Review</button>
+        <button class="ghost ai-chat-button" type="button" title="Chat with Codebase">AI Chat</button>
         <button class="ghost open-button" type="button">Open folder</button>
-        <button class="shelby-pro-btn hidden" type="button" title="Open Shelby Terminal">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 17l6-6-6-6"></path><path d="M12 19h8"></path></svg>
-          Shelby
-        </button>
+
         <button class="primary clone-button hidden" type="button">Clone to Local</button>
         <a class="remote-link" target="_blank" rel="noreferrer">Remote</a>
       </div>
@@ -821,7 +920,7 @@
       <span class="shelby-title">Shelby Terminal <span class="muted" id="shelbyStatus"></span></span>
       <div style="display:flex; gap: 8px;">
         <button id="shelbyAbortBtn" class="ghost hidden" style="color: var(--danger);">Abort</button>
-        <button id="shelbyCloseBtn" class="icon-button" style="padding: 4px 8px;">x</button>
+        <button type="button" id="shelbyCloseBtn" class="icon-button" style="padding: 4px 8px;">✕</button>
       </div>
     </div>
     <div class="shelby-content" style="padding: 0; display: flex; flex-direction: column;">
@@ -838,7 +937,7 @@
           <h2>Send Suggestion</h2>
         </div>
         <button class="icon-button" type="button"
-          onclick="document.getElementById('feedbackDialog').classList.add('hidden')">x</button>
+          onclick="document.getElementById('feedbackDialog').classList.add('hidden')">✕</button>
       </div>
       <form id="feedbackForm">
         <label>
@@ -856,7 +955,7 @@
     <div class="settings-panel">
       <div class="dialog-head">
         <h2>Health Score Calculation</h2>
-        <button class="icon-button" value="cancel" onclick="document.getElementById('healthInfoDialog').close()">x</button>
+        <button type="button" class="icon-button" onclick="document.getElementById('healthInfoDialog').close()">✕</button>
       </div>
       <div style="font-size: 0.95rem; color: var(--text); line-height: 1.6; margin-top: 16px;">
         <p style="margin-top: 0;">Every repository starts with a perfect score of <strong style="color: var(--accent);">100</strong>. Points are deducted based on Git hygiene:</p>

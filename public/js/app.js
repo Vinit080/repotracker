@@ -1,4 +1,4 @@
-import { api } from './api.js';
+import { api, localIpcToken } from './api.js';
 import { escapeHtml, escapeAttribute, renderChip, emptySmall } from './components.js';
 
 // ─── State ────────────────────────────────────────────────────────────────────
@@ -100,7 +100,20 @@ const el = {
   aiKeyInput: document.querySelector('#aiKeyInput'),
   wakaKeyInput: document.querySelector('#wakaKeyInput'),
   appPasswordInput: document.querySelector('#appPasswordInput'),
+  slackWebhookInput: document.querySelector('#slackWebhookInput'),
+  linearKeyInput: document.querySelector('#linearKeyInput'),
+  jiraDomainInput: document.querySelector('#jiraDomainInput'),
+  jiraEmailInput: document.querySelector('#jiraEmailInput'),
+  jiraTokenInput: document.querySelector('#jiraTokenInput'),
   saveSettingsButton: document.querySelector('#saveSettingsButton'),
+
+  // Integrations UI
+  myTicketsBtn: document.querySelector('#myTicketsBtn'),
+  myTicketsDialog: document.querySelector('#myTicketsDialog'),
+  myTicketsList: document.querySelector('#myTicketsList'),
+  myTicketsCloseBtn: document.querySelector('#myTicketsCloseBtn'),
+  postToSlackBtn: document.querySelector('#postToSlackBtn'),
+  updateReadyBtn: document.querySelector('#updateReadyBtn'),
 
   // Modals
   searchDialog: document.querySelector('#searchDialog'),
@@ -187,7 +200,8 @@ function openShelby(title, taskId) {
   if (shelbyWs) shelbyWs.close();
 
   const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  shelbyWs = new WebSocket(`${protocol}//${location.host}/api/tasks/stream?taskId=${taskId}`);
+  const tokenParam = localIpcToken ? `&token=${localIpcToken}` : '';
+  shelbyWs = new WebSocket(`${protocol}//${location.host}/api/v1/tasks/stream?taskId=${taskId}${tokenParam}`);
 
   shelbyWs.onopen = () => {
     shelbyWs.send(JSON.stringify({ type: 'resize', cols: shelbyTerminalInstance.cols, rows: shelbyTerminalInstance.rows }));
@@ -246,7 +260,7 @@ if (el.shelbyAbortBtn) {
       el.shelbyAbortBtn.disabled = true;
       el.shelbyAbortBtn.textContent = 'Killing...';
       try {
-        await api('/api/tasks/kill', { method: 'POST', body: JSON.stringify({ taskId: activeShelbyTask }) });
+        await api('/api/v1/tasks/kill', { method: 'POST', body: JSON.stringify({ taskId: activeShelbyTask }) });
         shelbyTerminalInstance?.write('\r\n[Process killed by user]\r\n');
       } catch {
         showToast('Failed to kill process', 'error');
@@ -265,9 +279,47 @@ const relativeFormatter = new Intl.RelativeTimeFormat(undefined, { numeric: 'aut
 // ─── Self-Updater ─────────────────────────────────────────────────────────────
 let _updateDownloadUrl = null; // stored for the button click handler
 
+if (window.electronAPI) {
+  window.electronAPI.onUpdateAvailable((info) => {
+    console.log('Electron Update available:', info);
+  });
+
+  window.electronAPI.onUpdateDownloaded((info) => {
+    console.log('Electron Update downloaded:', info);
+    if (el.updateReadyBtn) {
+      el.updateReadyBtn.classList.remove('hidden');
+    }
+  });
+
+  if (el.updateReadyBtn) {
+    el.updateReadyBtn.addEventListener('click', () => {
+      window.electronAPI.restartToUpdate();
+    });
+  }
+}
+
+if (window.electronAPI) {
+  window.electronAPI.onUpdateAvailable((info) => {
+    console.log('Electron Update available:', info);
+  });
+
+  window.electronAPI.onUpdateDownloaded((info) => {
+    console.log('Electron Update downloaded:', info);
+    if (el.updateReadyBtn) {
+      el.updateReadyBtn.classList.remove('hidden');
+    }
+  });
+
+  if (el.updateReadyBtn) {
+    el.updateReadyBtn.addEventListener('click', () => {
+      window.electronAPI.restartToUpdate();
+    });
+  }
+}
+
 async function checkForAppUpdates() {
   try {
-    const res = await api('/api/system/check-update');
+    const res = await api('/api/v1/system/check-update');
     if (!res.updateAvailable) return;
 
     el.systemUpdateBanner.classList.remove('hidden');
@@ -304,7 +356,7 @@ el.applyUpdateBtn?.addEventListener('click', async () => {
   btn.textContent = 'Updating...';
   btn.disabled = true;
   try {
-    await api('/api/system/apply-update', { method: 'POST', body: JSON.stringify({}) });
+    await api('/api/v1/system/apply-update', { method: 'POST', body: JSON.stringify({}) });
     btn.textContent = 'Success!';
     btn.style.background = 'var(--success)';
     setTimeout(() => {
@@ -361,7 +413,7 @@ function normalizeRemote(url) {
 // ─── Config ───────────────────────────────────────────────────────────────────
 async function loadConfig() {
   try {
-    state.config = await api('/api/config');
+    state.config = await api('/api/v1/config');
     el.rootsInput.value = (state.config.roots || []).join('\n');
     el.depthInput.value = state.config.maxDepth || 4;
     el.userNameInput.value = state.config.userName || '';
@@ -396,7 +448,7 @@ async function scanRepos() {
   el.scanMeta.textContent = 'Scanning folders and reading Git state...';
 
   try {
-    const data = await api('/api/repos');
+    const data = await api('/api/v1/repos');
     // API returns a plain array of repos (not { repos: [...] })
     const repos = Array.isArray(data) ? data : (data.repos || []);
     state.repos = repos;
@@ -575,6 +627,12 @@ function renderRepos(repos) {
       if (aiRevBtn && repo.status?.dirtyCount > 0 && state.config?.aiApiKey && state.config.aiApiKey !== '') {
         wireAiReviewButton(aiRevBtn, repo);
       }
+      
+      const aiChatBtn = fragment.querySelector('.ai-chat-button');
+      if (aiChatBtn && state.config?.aiApiKey && state.config.aiApiKey !== '') {
+        aiChatBtn.addEventListener('click', () => openAiChat(repo));
+      }
+
       const branchBtn = fragment.querySelector('.branch-button');
       if (branchBtn) wireBranchButton(branchBtn, repo);
     }
@@ -676,7 +734,7 @@ function renderRepoCard(repo) {
         const idx = btn.getAttribute('data-idx');
         const scriptObj = repo.scripts[idx];
         try {
-          const res = await api('/api/repos/action', { method: 'POST', body: JSON.stringify({ path: repo.path, scriptCmd: scriptObj.cmd }) });
+          const res = await api('/api/v1/repos/action', { method: 'POST', body: JSON.stringify({ path: repo.path, scriptCmd: scriptObj.cmd }) });
           openShelby(scriptObj.cmd, res.taskId);
         }
         catch (err) { showToast(`Failed to start: ${err.message}`, 'error'); }
@@ -713,7 +771,7 @@ function renderRepoCard(repo) {
         el.confirmCloneButton.disabled = true;
         el.confirmCloneButton.textContent = 'Cloning...';
         try {
-          const res = await api('/api/repos/clone', { method: 'POST', body: JSON.stringify({ root: el.cloneDestSelect.value, url: repo.remoteUrl, name: repo.name }) });
+          const res = await api('/api/v1/repos/clone', { method: 'POST', body: JSON.stringify({ root: el.cloneDestSelect.value, url: repo.remoteUrl, name: repo.name }) });
           el.cloneDialog.close();
           openShelby(`Clone ${repo.name}`, res.taskId);
         } catch (e) { showToast('Clone failed: ' + e.message, 'error'); }
@@ -727,7 +785,7 @@ function renderRepoCard(repo) {
 
     setupBtn.addEventListener('click', async () => {
       try {
-        const res = await api('/api/repos/setup', { method: 'POST', body: JSON.stringify({ path: repo.path }) });
+        const res = await api('/api/v1/repos/setup', { method: 'POST', body: JSON.stringify({ path: repo.path }) });
         openShelby('Auto-Setup', res.taskId);
       } catch (err) { showToast(`Auto-setup failed: ${err.message}`, 'error'); }
     });
@@ -735,7 +793,7 @@ function renderRepoCard(repo) {
     shelbyBtn.classList.remove('hidden');
     shelbyBtn.addEventListener('click', async () => {
       try {
-        const res = await api('/api/repos/terminal', { method: 'POST', body: JSON.stringify({ path: repo.path }) });
+        const res = await api('/api/v1/repos/terminal', { method: 'POST', body: JSON.stringify({ path: repo.path }) });
         openShelby('Terminal', res.taskId);
       } catch (err) { showToast(`Failed to start: ${err.message}`, 'error'); }
     });
@@ -743,7 +801,7 @@ function renderRepoCard(repo) {
     auditBtn.addEventListener('click', async () => {
       auditBtn.textContent = 'Auditing...';
       try {
-        const res = await api('/api/repos/audit', { method: 'POST', body: JSON.stringify({ path: repo.path }) });
+        const res = await api('/api/v1/repos/audit', { method: 'POST', body: JSON.stringify({ path: repo.path }) });
         const v = res.metadata?.vulnerabilities;
         if (v && (v.high > 0 || v.critical > 0)) {
           showToast(`⚠️ Vulnerabilities in ${repo.name}! High: ${v.high}, Critical: ${v.critical}`, 'warn');
@@ -761,7 +819,7 @@ function renderRepoCard(repo) {
         aisyncBtn.disabled = true;
         aisyncBtn.textContent = 'Syncing...';
         try {
-          const res = await api('/api/repos/aisync', { method: 'POST', body: JSON.stringify({ path: repo.path }) });
+          const res = await api('/api/v1/repos/aisync', { method: 'POST', body: JSON.stringify({ path: repo.path }) });
           showToast(`✅ Synced! Commit: "${res.message}"`, 'success');
           scanRepos();
         } catch (err) { showToast(`AI Sync failed: ${err.message}`, 'error'); }
@@ -770,7 +828,7 @@ function renderRepoCard(repo) {
     }
 
     openButton.addEventListener('click', () => {
-      api('/api/repos/open', { method: 'POST', body: JSON.stringify({ path: repo.path }) });
+      api('/api/v1/repos/open', { method: 'POST', body: JSON.stringify({ path: repo.path }) });
     });
   }
 
@@ -792,14 +850,14 @@ function renderRepoCard(repo) {
 // ─── Repo Meta (pin/note/tags) ────────────────────────────────────────────────
 async function updateRepoMeta(repo, patch) {
   const next = { path: repo.path, pinned: repo.pinned, note: repo.note, tags: repo.tags, ...patch };
-  await api('/api/repos/meta', { method: 'PATCH', body: JSON.stringify(next) });
+  await api('/api/v1/repos/meta', { method: 'PATCH', body: JSON.stringify(next) });
   Object.assign(repo, next);
   render();
 }
 
 // ─── Open Repo Folder ─────────────────────────────────────────────────────────
 async function openRepo(repoPath) {
-  await api('/api/repos/open', { method: 'POST', body: JSON.stringify({ path: repoPath }) });
+  await api('/api/v1/repos/open', { method: 'POST', body: JSON.stringify({ path: repoPath }) });
 }
 
 // ─── Save Settings ────────────────────────────────────────────────────────────
@@ -812,6 +870,11 @@ async function saveSettings(event) {
   const aiApiKey = el.aiKeyInput.value.trim();
   const wakatimeApiKey = el.wakaKeyInput.value.trim();
   const appPassword = el.appPasswordInput.value.trim();
+  const slackWebhookUrl = el.slackWebhookInput.value.trim();
+  const linearApiKey = el.linearKeyInput.value.trim();
+  const jiraDomain = el.jiraDomainInput.value.trim();
+  const jiraEmail = el.jiraEmailInput.value.trim();
+  const jiraApiToken = el.jiraTokenInput.value.trim();
 
   // L2: Only trigger a scan when the filesystem-affecting settings change
   const rootsChanged = JSON.stringify(roots) !== JSON.stringify(state.config?.roots || []);
@@ -822,9 +885,12 @@ async function saveSettings(event) {
   el.saveSettingsButton.disabled = true;
 
   try {
-    state.config = await api('/api/config', {
+    state.config = await api('/api/v1/config', {
       method: 'PUT',
-      body: JSON.stringify({ roots, maxDepth, userName, githubPat, aiApiKey, wakatimeApiKey, appPassword })
+      body: JSON.stringify({ 
+        roots, maxDepth, userName, githubPat, aiApiKey, wakatimeApiKey, appPassword,
+        slackWebhookUrl, linearApiKey, jiraDomain, jiraEmail, jiraApiToken
+      })
     });
     // Update password-related UI after save
     el.appPasswordInput.value = '';
@@ -852,7 +918,7 @@ async function saveSettings(event) {
 /** After changing the password, get a fresh session token silently. */
 async function _refreshSession(newPassword) {
   try {
-    await fetch('/api/login', {
+    await fetch('/api/v1/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ password: newPassword })
@@ -863,7 +929,7 @@ async function _refreshSession(newPassword) {
 // ─── Timeline ─────────────────────────────────────────────────────────────────
 async function fetchTimeline() {
   try {
-    const commits = await api('/api/timeline');
+    const commits = await api('/api/v1/timeline');
     state.timeline = commits;
     el.timelineList.replaceChildren(...commits.map(c => {
       const d = document.createElement('div');
@@ -882,7 +948,7 @@ async function fetchTimeline() {
 // ─── TODOs ────────────────────────────────────────────────────────────────────
 async function fetchTodos() {
   try {
-    const data = await api('/api/todos');
+    const data = await api('/api/v1/todos');
     const todos = data.results || [];
     el.todoList.replaceChildren(...todos.map(t => {
       const d = document.createElement('div');
@@ -903,7 +969,7 @@ async function fetchTodos() {
 async function fetchGithubRepos() {
   if (!state.config?.githubPat) return;
   try {
-    const data = await api('/api/github/repos');
+    const data = await api('/api/v1/github/repos');
     if (!Array.isArray(data)) return;
     for (const ghRepo of data) {
       const local = state.repos.find(r => {
@@ -932,7 +998,7 @@ async function fetchGithubRepos() {
 async function fetchWakatimeStats() {
   if (!state.config?.wakatimeApiKey) return;
   try {
-    const data = await api('/api/wakatime');
+    const data = await api('/api/v1/wakatime');
     // L6: guard against unexpected response shape (e.g. WakaTime API error object)
     if (!Array.isArray(data?.data)) {
       console.warn('WakaTime: unexpected response', data?.error || data);
@@ -951,26 +1017,157 @@ async function fetchWakatimeStats() {
 
 // ─── Global Search ────────────────────────────────────────────────────────────
 let searchTimeout;
-el.globalSearchInput.addEventListener('input', e => {
-  clearTimeout(searchTimeout);
-  const q = e.target.value.trim();
+el.globalSearchInput.addEventListener('input', (e) => {
+  const q = e.target.value.toLowerCase().trim();
   if (!q) { el.searchResults.innerHTML = ''; return; }
-  searchTimeout = setTimeout(async () => {
-    el.searchResults.innerHTML = '<span class="muted">Searching...</span>';
-    try {
-      const res = await api('/api/search', { method: 'POST', body: JSON.stringify({ query: q }) });
-      if (res.results?.length) {
-        el.searchResults.innerHTML = res.results.map(r => `
-          <div style="border-bottom:1px solid rgba(255,255,255,.1);padding:8px 0;cursor:pointer" data-open="${escapeAttribute(r.path)}">
-            <div style="font-size:.8rem;color:var(--accent)">${escapeHtml(r.repo)} — ${escapeHtml(r.file)}:${escapeHtml(r.line)}</div>
-            <div style="font-family:monospace;font-size:.85rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(r.content)}</div>
-          </div>`).join('');
-      } else {
-        el.searchResults.innerHTML = '<span class="muted">No results found.</span>';
+  const hits = state.repos.filter(r => r.name.toLowerCase().includes(q) || r.path.toLowerCase().includes(q));
+  
+  el.searchResults.innerHTML = hits.map(r => `
+    <div class="search-result-item" data-path="${r.path}" style="padding:12px;border:1px solid var(--border);border-radius:8px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;">
+      <div>
+        <div style="font-weight:600;">${r.name}</div>
+        <div style="font-size:0.8rem;color:var(--muted);">${r.path}</div>
+      </div>
+      ${renderChip(r.status.branch, 'accent')}
+    </div>
+  `).join('');
+
+  el.searchResults.querySelectorAll('.search-result-item').forEach(item => {
+    item.addEventListener('click', () => {
+      el.globalSearchDialog.close();
+      const path = item.dataset.path;
+      const card = el.repoGrid.querySelector(`[data-path="${path.replace(/\\/g, '\\\\')}"]`);
+      if (card) {
+        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        card.style.animation = 'highlight 2s ease';
       }
-    } catch { el.searchResults.innerHTML = '<span class="muted">Error searching.</span>'; }
-  }, 300);
+    });
+  });
 });
+
+// My Tickets Dialog
+if (el.myTicketsBtn) {
+  let _allTickets = [];
+  let _activeFilter = 'all';
+
+  // Map raw state strings to chip class names
+  function getStateClass(state) {
+    const s = (state || '').toLowerCase();
+    if (s.includes('progress') || s.includes('doing') || s.includes('active')) return 'progress';
+    if (s.includes('review') || s.includes('testing')) return 'review';
+    if (s.includes('todo') || s.includes('backlog') || s.includes('to do')) return 'todo';
+    return 'open';
+  }
+
+  function getSourceKey(src) {
+    if (src === 'Jira') return 'jira';
+    if (src === 'Linear') return 'linear';
+    return 'github';
+  }
+
+  function getSourceAbbr(src) {
+    if (src === 'Jira') return 'JR';
+    if (src === 'Linear') return 'LN';
+    return 'GH';
+  }
+
+  function renderTickets(tickets) {
+    const list = document.getElementById('myTicketsList');
+    if (!list) return;
+    if (!tickets.length) {
+      list.innerHTML = `
+        <div class="tickets-empty">
+          <div class="tickets-empty-icon">🎉</div>
+          <div class="tickets-empty-title">No open tickets${_activeFilter !== 'all' ? ` in ${_activeFilter}` : ''}!</div>
+          <div class="tickets-empty-sub">You're all caught up. Enjoy the moment.</div>
+        </div>`;
+      return;
+    }
+    list.innerHTML = tickets.map((issue, i) => `
+      <a href="${escapeAttribute(issue.url)}" target="_blank" rel="noreferrer" class="ticket-row" style="animation-delay:${i * 40}ms">
+        <span class="ticket-source-badge ${getSourceKey(issue.source)}" title="${escapeAttribute(issue.source)}">${escapeHtml(getSourceAbbr(issue.source))}</span>
+        <div class="ticket-body">
+          <div class="ticket-title">${escapeHtml(issue.title)}</div>
+          <div class="ticket-meta">
+            <span class="ticket-id">${escapeHtml(issue.id)}</span>
+            <span>·</span>
+            <span class="ticket-state-chip ${getStateClass(issue.state)}">${escapeHtml(issue.state)}</span>
+          </div>
+        </div>
+        <svg class="ticket-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="9 18 15 12 9 6"></polyline>
+        </svg>
+      </a>
+    `).join('');
+  }
+
+  function updateCounts(allIssues) {
+    const bySource = { Jira: 0, Linear: 0, GitHub: 0 };
+    allIssues.forEach(i => { if (bySource[i.source] !== undefined) bySource[i.source]++; });
+    document.getElementById('ticketCountAll').textContent = allIssues.length;
+    document.getElementById('ticketCountJira').textContent = bySource.Jira;
+    document.getElementById('ticketCountLinear').textContent = bySource.Linear;
+    document.getElementById('ticketCountGitHub').textContent = bySource.GitHub;
+  }
+
+  function applyFilter(filter) {
+    _activeFilter = filter;
+    document.querySelectorAll('#ticketsFilters .ticket-filter-pill').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.filter === filter);
+    });
+    const filtered = filter === 'all' ? _allTickets : _allTickets.filter(t => t.source === filter);
+    renderTickets(filtered);
+  }
+
+  // Filter pill click handlers
+  document.getElementById('ticketsFilters')?.addEventListener('click', (e) => {
+    const pill = e.target.closest('[data-filter]');
+    if (pill) applyFilter(pill.dataset.filter);
+  });
+
+  el.myTicketsBtn.addEventListener('click', async () => {
+    el.myTicketsDialog.showModal();
+    _allTickets = [];
+    _activeFilter = 'all';
+
+    // Reset filter pills
+    document.querySelectorAll('#ticketsFilters .ticket-filter-pill').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.filter === 'all');
+    });
+    ['ticketCountAll','ticketCountJira','ticketCountLinear','ticketCountGitHub'].forEach(id => {
+      const el2 = document.getElementById(id);
+      if (el2) el2.textContent = '0';
+    });
+
+    // Shimmer skeletons
+    const list = document.getElementById('myTicketsList');
+    if (list) {
+      list.innerHTML = [1, 2, 3].map(() => `<div class="ticket-skeleton"></div>`).join('');
+    }
+
+    try {
+      const { issues } = await api('/api/v1/integrations/issues');
+      _allTickets = issues || [];
+      updateCounts(_allTickets);
+      renderTickets(_allTickets);
+    } catch (e) {
+      if (list) {
+        list.innerHTML = `
+          <div class="tickets-error">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            Failed to load tickets: ${escapeHtml(e.message)}
+          </div>`;
+      }
+    }
+  });
+
+  if (el.myTicketsCloseBtn) {
+    el.myTicketsCloseBtn.addEventListener('click', () => {
+      el.myTicketsDialog.close();
+    });
+  }
+}
+
 
 // ─── Event Listeners ──────────────────────────────────────────────────────────
 
@@ -1034,7 +1231,7 @@ el.authForm.addEventListener('submit', async e => {
   e.preventDefault();
   const password = el.authPasswordInput.value;
   try {
-    const res = await fetch('/api/login', {
+    const res = await fetch('/api/v1/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ password })
@@ -1053,7 +1250,7 @@ el.authForm.addEventListener('submit', async e => {
 
 // Logout
 el.logoutBtn.addEventListener('click', async () => {
-  await api('/api/logout', { method: 'POST', body: JSON.stringify({}) });
+  await api('/api/v1/logout', { method: 'POST', body: JSON.stringify({}) });
   location.reload();
 });
 
@@ -1120,7 +1317,7 @@ el.feedbackForm.addEventListener('submit', async e => {
 // ─── Dialog Pickers ───────────────────────────────────────────────────────────
 async function handleFolderBrowse(textareaElement) {
   try {
-    const res = await api('/api/dialog/folder', { method: 'POST', body: JSON.stringify({}) });
+    const res = await api('/api/v1/dialog/folder', { method: 'POST', body: JSON.stringify({}) });
     if (res.path) {
       const current = textareaElement.value;
       textareaElement.value = current ? current.replace(/[\r\n]+$/, '') + '\n' + res.path : res.path;
@@ -1192,7 +1389,7 @@ async function showWizard() {
   el.shell.style.display = 'none';
   // Pre-populate suggestions as auto-added folders on step 2
   try {
-    const res = await api('/api/suggest-roots');
+    const res = await api('/api/v1/suggest-roots');
     if (res.suggestions?.length) {
       wizard.roots = res.suggestions.map(p => ({ path: p }));
       renderWizFolders();
@@ -1213,7 +1410,7 @@ async function completeWizard() {
   // Capture ping opt-in from wizard checkbox
   const pingOptIn = document.getElementById('wizPingOptIn')?.checked === true;
   if (pingOptIn !== (state.config?.pingOptIn === true)) {
-    api('/api/ping-optin', { method: 'POST', body: JSON.stringify({ optIn: pingOptIn }) }).catch(() => {});
+    api('/api/v1/ping-optin', { method: 'POST', body: JSON.stringify({ optIn: pingOptIn }) }).catch(() => {});
   }
   const wakatimeApiKey = wizard.wakaKey;
   const appPassword = wizard.password;
@@ -1230,13 +1427,20 @@ async function completeWizard() {
   };
 
   try {
-    state.config = await api('/api/config', { method: 'PUT', body: JSON.stringify(payload) });
+    state.config = await api('/api/v1/config', { method: 'PUT', body: JSON.stringify(payload) });
     // Sync settings panel fields
     el.userNameInput.value = state.config.userName || '';
     el.rootsInput.value = (state.config.roots || []).join('\n');
     el.patInput.value = state.config.githubPat || '';
     el.aiKeyInput.value = state.config.aiApiKey || '';
     el.wakaKeyInput.value = state.config.wakatimeApiKey || '';
+    el.slackWebhookInput.value = state.config.slackWebhookUrl || '';
+    el.linearKeyInput.value = state.config.linearApiKey || '';
+    el.jiraDomainInput.value = state.config.jiraDomain || '';
+    el.jiraEmailInput.value = state.config.jiraEmail || '';
+    el.jiraTokenInput.value = state.config.jiraApiToken || '';
+
+    el.appPasswordInput.value = '';
     if (appPassword) {
       await _refreshSession(appPassword);
       el.logoutBtn.classList.remove('hidden');
@@ -1300,7 +1504,7 @@ el.wizStep2Back?.addEventListener('click', () => goToStep(1, true));
 
 el.wizAddFolderBtn?.addEventListener('click', async () => {
   try {
-    const res = await api('/api/dialog/folder', { method: 'POST', body: JSON.stringify({}) });
+    const res = await api('/api/v1/dialog/folder', { method: 'POST', body: JSON.stringify({}) });
     if (res.path && !wizard.roots.find(r => r.path === res.path)) {
       wizard.roots.push({ path: res.path });
       renderWizFolders();
@@ -1329,7 +1533,7 @@ el.wizVerifyBtn?.addEventListener('click', async () => {
   el.wizTokenStatus.textContent = '';
 
   try {
-    const res = await api('/api/verify-github-token', { method: 'POST', body: JSON.stringify({ token }) });
+    const res = await api('/api/v1/verify-github-token', { method: 'POST', body: JSON.stringify({ token }) });
     if (res.ok) {
       wizard.githubToken = token;
       wizard.githubUser = { login: res.login, name: res.name };
@@ -1386,8 +1590,31 @@ el.standupButton.addEventListener('click', async () => {
   el.standupDialog.showModal();
   el.standupContent.textContent = 'Generating your AI Standup...';
   try {
-    const res = await api('/api/standup', { method: 'POST', body: JSON.stringify({ commits: state.timeline }) });
-    el.standupContent.textContent = res.report;
+    const data = await api('/api/v1/standup', { method: 'POST', body: JSON.stringify({ commits: state.timeline }) });
+    if (data.report) {
+      el.standupContent.textContent = data.report;
+      
+      // If Slack is configured, show the button
+      if (state.config.slackWebhookUrl) {
+        el.postToSlackBtn.classList.remove('hidden');
+        el.postToSlackBtn.onclick = async () => {
+          el.postToSlackBtn.textContent = 'Posting...';
+          el.postToSlackBtn.disabled = true;
+          try {
+            await api('/api/v1/integrations/slack', { method: 'POST', body: JSON.stringify({ text: data.report }) });
+            el.postToSlackBtn.textContent = 'Posted!';
+          } catch (e) {
+            showToast('Failed to post to Slack', 'error');
+            el.postToSlackBtn.textContent = 'Post to Slack';
+            el.postToSlackBtn.disabled = false;
+          }
+        };
+      } else {
+        el.postToSlackBtn.classList.add('hidden');
+      }
+    } else {
+      el.standupContent.textContent = data.report;
+    }
   } catch (err) { el.standupContent.textContent = `Error: ${err.message}`; }
 });
 
@@ -1403,20 +1630,118 @@ document.getElementById('themeToggleBtn').addEventListener('click', () => {
 // ─── AI Code Reviewer ─────────────────────────────────────────────────────────
 function wireAiReviewButton(btn, repo) {
   btn.classList.remove('hidden');
+  
+  const autofixBtn = document.getElementById('aiAutoFixBtn');
+  let currentReviewRepo = null;
+
   btn.addEventListener('click', async () => {
     const dialog = document.getElementById('aiReviewDialog');
     const content = document.getElementById('aiReviewContent');
+    currentReviewRepo = repo;
     content.textContent = '🤖 Analyzing your changes with Gemini...';
     dialog.showModal();
     btn.disabled = true;
+    if(autofixBtn) autofixBtn.disabled = true;
     try {
-      const res = await api('/api/repos/ai-review', { method: 'POST', body: JSON.stringify({ path: repo.path }) });
+      const res = await api('/api/v1/repos/ai-review', { method: 'POST', body: JSON.stringify({ path: repo.path }) });
       content.textContent = res.review;
+      if(autofixBtn) autofixBtn.disabled = false;
     } catch (err) {
       content.textContent = `❌ Review failed: ${err.message}`;
     } finally { btn.disabled = false; }
   });
+
+  if (autofixBtn && !autofixBtn.dataset.wired) {
+    autofixBtn.dataset.wired = "true";
+    autofixBtn.addEventListener('click', async () => {
+      if (!currentReviewRepo) return;
+      const content = document.getElementById('aiReviewContent');
+      const oldText = content.textContent;
+      content.textContent = '✨ Generating and applying Auto-Fix patch...';
+      autofixBtn.disabled = true;
+      try {
+        const res = await api('/api/v1/repos/ai-autofix', { method: 'POST', body: JSON.stringify({ path: currentReviewRepo.path }) });
+        content.textContent = `✅ ${res.message}\n\nReviewing updated code...`;
+        // Refresh repo view explicitly
+        if (window.loadActivity) window.loadActivity();
+      } catch (err) {
+        content.textContent = `❌ Auto-Fix failed: ${err.message}\n\n---\n\n${oldText}`;
+      } finally {
+        autofixBtn.disabled = false;
+      }
+    });
+  }
 }
+
+// ─── AI Chat ──────────────────────────────────────────────────────────────────
+let currentChatRepo = null;
+function openAiChat(repo) {
+  currentChatRepo = repo;
+  const modal = document.getElementById('aiChatModal');
+  const history = document.getElementById('aiChatHistory');
+  
+  // Reset if opening a different repo
+  if (modal.dataset.repoPath !== repo.path) {
+    history.innerHTML = `
+      <div style="background: var(--panel-strong); padding: 12px 16px; border-radius: 12px; font-size: 0.9rem; align-self: flex-start; max-width: 85%; line-height: 1.4;">
+        Hi! I have read your <strong>repository structure</strong> and your <strong>current git diff</strong> for <code>${repo.name}</code>. What would you like to know?
+      </div>
+    `;
+    modal.dataset.repoPath = repo.path;
+  }
+  
+  modal.showModal();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const chatForm = document.getElementById('aiChatForm');
+  if (!chatForm) return;
+  chatForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!currentChatRepo) return;
+    
+    const input = document.getElementById('aiChatInput');
+    const msg = input.value.trim();
+    if (!msg) return;
+    
+    const history = document.getElementById('aiChatHistory');
+    const submitBtn = document.getElementById('aiChatSubmitBtn');
+    
+    // Add User message
+    const userBubble = document.createElement('div');
+    userBubble.style.cssText = 'background: var(--accent); color: white; padding: 12px 16px; border-radius: 12px; font-size: 0.9rem; align-self: flex-end; max-width: 85%; line-height: 1.4;';
+    userBubble.textContent = msg;
+    history.appendChild(userBubble);
+    history.scrollTop = history.scrollHeight;
+    
+    input.value = '';
+    input.disabled = true;
+    submitBtn.disabled = true;
+    
+    // Add placeholder AI message
+    const aiBubble = document.createElement('div');
+    aiBubble.style.cssText = 'background: var(--panel-strong); padding: 12px 16px; border-radius: 12px; font-size: 0.9rem; align-self: flex-start; max-width: 85%; line-height: 1.4;';
+    aiBubble.textContent = 'Thinking...';
+    history.appendChild(aiBubble);
+    history.scrollTop = history.scrollHeight;
+    
+    try {
+      const res = await api('/api/v1/repos/ai-chat', {
+        method: 'POST',
+        body: JSON.stringify({ path: currentChatRepo.path, message: msg })
+      });
+      aiBubble.innerHTML = window.marked ? window.marked.parse(res.reply) : res.reply.replace(/\\n/g, '<br>');
+    } catch (err) {
+      aiBubble.textContent = '❌ Error: ' + err.message;
+      aiBubble.style.color = 'var(--danger)';
+    } finally {
+      input.disabled = false;
+      submitBtn.disabled = false;
+      input.focus();
+      history.scrollTop = history.scrollHeight;
+    }
+  });
+});
 
 // ─── Branch Manager ───────────────────────────────────────────────────────────
 let _branchManagerRepo = null;
@@ -1434,7 +1759,7 @@ async function refreshBranchList(repoPath) {
   const list = document.getElementById('branchList');
   list.innerHTML = '<span class="muted">Loading branches...</span>';
   try {
-    const res = await api(`/api/repos/branches?path=${encodeURIComponent(repoPath)}`);
+    const res = await api(`/api/v1/repos/branches?path=${encodeURIComponent(repoPath)}`);
     list.replaceChildren(...res.branches.map(b => {
       const d = document.createElement('div');
       d.className = 'attention-item';
@@ -1455,7 +1780,7 @@ async function refreshBranchList(repoPath) {
           const origText = btn.textContent;
           btn.disabled = true; btn.textContent = '...';
           try {
-            await api('/api/repos/branch', { method: 'POST', body: JSON.stringify({ path: repoPath, action: btn.dataset.action, branch: btn.dataset.branch }) });
+            await api('/api/v1/repos/branch', { method: 'POST', body: JSON.stringify({ path: repoPath, action: btn.dataset.action, branch: btn.dataset.branch }) });
             showToast(`✅ ${btn.dataset.action} → ${btn.dataset.branch}`, 'success');
             await refreshBranchList(repoPath);
             if (btn.dataset.action !== 'delete') scanRepos();
@@ -1473,7 +1798,7 @@ document.getElementById('createBranchBtn')?.addEventListener('click', async () =
   const from = document.getElementById('newBranchFrom')?.value.trim();
   if (!name) { showToast('Enter a branch name', 'warn'); return; }
   try {
-    await api('/api/repos/branch', { method: 'POST', body: JSON.stringify({ path: _branchManagerRepo.path, action: 'create', branch: name, from: from||undefined }) });
+    await api('/api/v1/repos/branch', { method: 'POST', body: JSON.stringify({ path: _branchManagerRepo.path, action: 'create', branch: name, from: from||undefined }) });
     showToast(`✅ Created branch: ${name}`, 'success');
     document.getElementById('newBranchInput').value = '';
     document.getElementById('newBranchFrom').value = '';
@@ -1538,7 +1863,7 @@ document.getElementById('gistSyncBtn')?.addEventListener('click',async()=>{
   const btn=document.getElementById('gistSyncBtn'),status=document.getElementById('gistSyncStatus');
   btn.disabled=true;btn.textContent='Syncing...';
   try{
-    const res=await api('/api/config/sync-to-gist',{method:'POST',body:JSON.stringify({})});
+    const res=await api('/api/v1/config/sync-to-gist',{method:'POST',body:JSON.stringify({})});
     status.textContent=`✅ Synced at ${new Date(res.syncedAt).toLocaleTimeString()}`;
     const g=document.getElementById('gistIdInput');if(g)g.value=res.gistId;
     showToast('Config synced to GitHub Gist! ☁️','success');
@@ -1550,7 +1875,7 @@ document.getElementById('gistRestoreBtn')?.addEventListener('click',async()=>{
   if(!gistId){showToast('Enter a Gist ID first','warn');return;}
   const btn=document.getElementById('gistRestoreBtn');btn.disabled=true;btn.textContent='Restoring...';
   try{
-    const res=await api('/api/config/restore-from-gist',{method:'POST',body:JSON.stringify({gistId})});
+    const res=await api('/api/v1/config/restore-from-gist',{method:'POST',body:JSON.stringify({gistId})});
     showToast(`✅ Config restored — ${res.restored.roots.length} roots`,'success');
     await loadConfig();await scanRepos();
   }catch(err){showToast('Restore failed: '+err.message,'error');}
@@ -1560,8 +1885,8 @@ document.getElementById('gistRestoreBtn')?.addEventListener('click',async()=>{
 // ─── Activity / Team Tab ──────────────────────────────────────────────────────
 const EVENT_LABELS={'repo_scan':'🔍 Repo Scan','ai_sync':'🤖 AI Sync','ai_review':'🔍 AI Review','terminal_open':'💻 Terminal','search':'🔎 Search','standup':'📋 Standup','clone':'📥 Clone','branch_op':'🌿 Branch Op','gist_sync':'☁️ Gist Sync','gist_restore':'⬇️ Gist Restore'};
 async function loadTeamTab(){
-  try{
-    const res=await api('/api/activity');
+  try {
+    const res=await api('/api/v1/activity');
     const stats=res.weeklyStats||{},activity=res.activity||[];
     const statCards=[{label:'AI Syncs',key:'ai_sync',icon:'🤖'},{label:'AI Reviews',key:'ai_review',icon:'🔍'},{label:'Searches',key:'search',icon:'🔎'},{label:'Terminal Sessions',key:'terminal_open',icon:'💻'},{label:'Scans',key:'repo_scan',icon:'📡'},{label:'Branch Ops',key:'branch_op',icon:'🌿'}];
     const statsEl=document.getElementById('activityStats');
@@ -1647,63 +1972,12 @@ document.addEventListener('click', e => {
 // INVESTOR-READY FEATURES — Sprint 1-4
 // ══════════════════════════════════════════════════════════════════════════════
 
-// ── Sprint 1: Pro License ──────────────────────────────────────────────────────
-function updateLicenseUI() {
-  // Use licenseTier from config (set by server during activation) — no key-format guessing needed
-  const hasKey  = Boolean(state.config?.licenseKeySet);
-  const tier    = state.config?.licenseTier || state.tier || 'core';
-  const isTeam  = tier === 'team';
-  const tierLabel = document.getElementById('licenseTierLabel');
-  const activeRow = document.getElementById('licenseActiveRow');
-  const input     = document.getElementById('licenseKeyInput');
-  if (activeRow)  activeRow.classList.toggle('hidden', !hasKey);
-  if (tierLabel)  tierLabel.textContent = isTeam ? 'Team' : 'Pro';
-  if (input && !hasKey) input.value = '';
-  // Also update state.tier for feature gates
-  if (hasKey) state.tier = tier;
-}
 
-document.getElementById('activateLicenseBtn')?.addEventListener('click', async () => {
-  const input = document.getElementById('licenseKeyInput');
-  const key = input?.value?.trim();
-  if (!key) { showToast('Enter a license key first', 'error'); return; }
-  const btn = document.getElementById('activateLicenseBtn');
-  btn.textContent = 'Activating…'; btn.disabled = true;
-  try {
-    const res = await api('/api/license', { method: 'POST', body: JSON.stringify({ key }) });
-    // Update state with tier returned from server (set by LemonSqueezy API)
-    state.tier = res.tier || 'pro';
-    state.config = {
-      ...state.config,
-      licenseKeySet: true,
-      licenseKey: '••• (saved)',
-      licenseTier: res.tier || 'pro',
-      licenseInstanceId: res.instanceId || null,
-    };
-    updateLicenseUI();
-    showToast(`✅ ${res.tier === 'team' ? 'Team' : 'Pro'} license activated on this machine!`, 'success');
-  } catch (err) { showToast(`❌ ${err.message}`, 'error'); }
-  finally { btn.textContent = 'Activate'; btn.disabled = false; }
-});
-
-document.getElementById('revokeLicenseBtn')?.addEventListener('click', async () => {
-  if (!confirm('Remove license key from this machine?\n\nYour activation slot will be freed so you can activate on another machine.')) return;
-  const btn = document.getElementById('revokeLicenseBtn');
-  btn.textContent = 'Deactivating…'; btn.disabled = true;
-  try {
-    await api('/api/license', { method: 'DELETE' });
-    state.tier = 'free';
-    state.config = { ...state.config, licenseKeySet: false, licenseKey: '', licenseTier: 'core', licenseInstanceId: null };
-    updateLicenseUI();
-    showToast('License deactivated. Activation slot freed — you can now activate on another machine.', 'info');
-  } catch (err) { showToast(`❌ ${err.message}`, 'error'); }
-  finally { btn.textContent = 'Remove License'; btn.disabled = false; }
-});
 
 // ── Sprint 2: Team Status + Banner ─────────────────────────────────────────────
 async function checkTeamStatus() {
   try {
-    const status = await api('/api/team/status');
+    const status = await api('/api/v1/team/status');
     const banner = document.getElementById('teamModeBanner');
     const urlEl = document.getElementById('teamModeUrl');
     const copyBtn = document.getElementById('copyTeamUrlBtn');
@@ -1725,7 +1999,7 @@ async function generateTeamToken() {
   const label = prompt('Label for this token (e.g. teammate\'s name):');
   if (!label) return;
   try {
-    const res = await api('/api/team/token', { method: 'POST', body: JSON.stringify({ label }) });
+    const res = await api('/api/v1/team/token', { method: 'POST', body: JSON.stringify({ label }) });
     showToast(`✅ Token generated for ${res.token.label}`, 'success');
     // Show token in a prompt so user can copy it
     const tokenStr = `${res.token.token}`;
@@ -1754,7 +2028,7 @@ function renderTeamTokens(status) {
     row.innerHTML = `<span>${escapeHtml(t.label)} <span class="muted" style="font-size:0.75rem;">${relativeTime(Math.floor(new Date(t.createdAt||0).getTime()/1000))}</span></span>
       <button class="ghost" style="padding:2px 8px;font-size:0.75rem;color:var(--danger);" data-token="${escapeAttribute(t.token)}">Revoke</button>`;
     row.querySelector('button')?.addEventListener('click', async (e) => {
-      await api('/api/team/token', { method: 'DELETE', body: JSON.stringify({ token: e.target.dataset.token }) });
+      await api('/api/v1/team/token', { method: 'DELETE', body: JSON.stringify({ token: e.target.dataset.token }) });
       // Update local state
       state.config.teamTokens = state.config.teamTokens?.filter(tok => tok.token !== e.target.dataset.token);
       renderTeamTokens({ tokenCount: state.config.teamTokens?.length });
@@ -1796,71 +2070,8 @@ if (_wizPingCheck) {
 
 // ── Boot: check team status on load ───────────────────────────────────────────
 checkTeamStatus();
-updateLicenseUI();
 
-// ── UPGRADE MODAL WIRING ──────────────────────────────────────────────────────
-const FEATURE_META = {
-  ai_review:  { name: 'AI Code Reviewer',   desc: 'Analyze diffs for bugs & security issues before committing.',  tier: 'Pro',  price: '$29' },
-  ai_sync:    { name: 'AI Git Sync',         desc: 'Generate perfect commit messages with Gemini AI.',              tier: 'Pro',  price: '$29' },
-  gist_sync:  { name: 'Cloud Config Sync',   desc: 'Sync your settings to a private GitHub Gist across machines.', tier: 'Pro',  price: '$29' },
-  badges:     { name: 'Health Badges',        desc: 'Embed live repo health badges in any README.',                  tier: 'Pro',  price: '$29' },
-  export:     { name: 'Dashboard Export',     desc: 'Download a self-contained HTML snapshot of your dashboard.',   tier: 'Pro',  price: '$29' },
-  pomodoro:   { name: 'Pomodoro Timer',       desc: 'Deep-work focus sessions with desktop notifications.',          tier: 'Pro',  price: '$29' },
-  team_mode:  { name: 'Team Mode',            desc: 'Share your dashboard with teammates over your local network.',  tier: 'Team', price: '$79' },
-  lan_dashboard: { name: 'LAN Dashboard',     desc: 'Broadcast your dashboard to up to 5 teammates on LAN.',       tier: 'Team', price: '$79' },
-  team_standup:  { name: 'Team Standup',      desc: 'AI-generated standup visible to your whole team.',              tier: 'Team', price: '$79' },
-};
 
-function showUpgradeModal(feature, upgradeUrl) {
-  const modal = document.getElementById('upgradeModal');
-  if (!modal) return;
-
-  const meta = FEATURE_META[feature] || { name: 'This feature', desc: 'Unlock powerful developer tools.', tier: 'Pro', price: '$29' };
-  const isTeam = meta.tier === 'Team';
-  const buyUrl = upgradeUrl || (isTeam ? 'https://repotracker.lemonsqueezy.com/buy/team' : 'https://repotracker.lemonsqueezy.com/buy/pro');
-
-  // Update modal header dynamically
-  const titleEl = document.getElementById('upgradeModalTitle');
-  const descEl  = document.getElementById('upgradeModalDesc');
-  const priceEl = document.getElementById('upgradeModalPrice');
-  const tierEl  = document.getElementById('upgradeModalTier');
-  const buyBtn  = document.getElementById('upgradeModalBtn');
-  const iconEl  = document.getElementById('upgradeModalIcon');
-
-  if (titleEl) titleEl.textContent = `Upgrade to ${meta.tier}`;
-  if (descEl)  descEl.textContent  = `${meta.name} — ${meta.desc}`;
-  if (priceEl) priceEl.textContent = `${meta.price} one-time`;
-  if (tierEl)  tierEl.textContent  = meta.tier;
-  if (buyBtn)  buyBtn.href         = buyUrl;
-  if (iconEl)  iconEl.textContent  = isTeam ? '👥' : '✨';
-
-  // Highlight the relevant feature row
-  document.querySelectorAll('.upgrade-feature-row').forEach(row => {
-    row.style.background = row.dataset.feature === feature
-      ? 'color-mix(in srgb,var(--accent) 14%,transparent)'
-      : 'color-mix(in srgb,var(--accent) 6%,transparent)';
-    row.style.borderColor = row.dataset.feature === feature
-      ? 'color-mix(in srgb,var(--accent) 40%,transparent)'
-      : 'color-mix(in srgb,var(--accent) 15%,transparent)';
-  });
-
-  modal.showModal();
-}
-
-document.getElementById('upgradeModalClose')?.addEventListener('click', () => {
-  document.getElementById('upgradeModal')?.close();
-});
-
-// Global handler: intercept any unhandled requiresUpgrade errors
-window.addEventListener('unhandledrejection', (e) => {
-  if (e.reason?.requiresUpgrade) {
-    e.preventDefault();
-    showUpgradeModal(e.reason.feature, e.reason.upgradeUrl);
-  }
-});
-
-// Export showUpgradeModal globally so any catch block can call it
-window.showUpgradeModal = showUpgradeModal;
 
 // ══════════════════════════════════════════════════════════════════════════════
 // FIX #5 — UX: Keyboard shortcuts, team self-test, better error handling
@@ -1916,7 +2127,7 @@ const _origCheckTeamStatus = checkTeamStatus;
 window._teamSelfTestRan = false;
 const _wrappedCheckTeam = async () => {
   try {
-    const status = await api('/api/team/status');
+    const status = await api('/api/v1/team/status');
     if (status.teamMode && status.teamUrl && !window._teamSelfTestRan) {
       window._teamSelfTestRan = true;
       setTimeout(() => runTeamSelfTest(status.teamUrl), 1500);
@@ -1926,12 +2137,7 @@ const _wrappedCheckTeam = async () => {
 _wrappedCheckTeam();
 
 // ── Better error handler for Pro gate catches ──────────────────────────────────
-// Any catch block that does showToast(err.message) should also check for upgrade
 function handleApiError(err, defaultMsg) {
-  if (err.requiresUpgrade) {
-    showUpgradeModal(err.feature, err.upgradeUrl);
-    return;
-  }
   showToast(err.message || defaultMsg, 'error');
 }
 window.handleApiError = handleApiError;
@@ -1960,15 +2166,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-document.addEventListener('DOMContentLoaded', () => {
-  const navUpgradeBtn = document.getElementById('navUpgradeBtn');
-  if (navUpgradeBtn && typeof showUpgradeModal === 'function') {
-    navUpgradeBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      showUpgradeModal();
-    });
-  }
-});
+
 // ── Navbar Hamburger Dropdown ─────────────────────────────────────────────
 (function() {
   const menuBtn = document.getElementById('menuToggleBtn');
@@ -1998,151 +2196,87 @@ document.addEventListener('DOMContentLoaded', () => {
   menu.addEventListener('click', () => {
     setTimeout(() => menu.classList.remove('open'), 120);
   });
-
-  // Wire up Pro upgrade modal
-  const upgradeBtn = document.getElementById('navUpgradeBtn');
-  if (upgradeBtn && upgradeModal) {
-    upgradeBtn.addEventListener('click', () => upgradeModal.showModal());
-  }
-
-  // Wire up license activation
-  const activateBtn = document.getElementById('activateLicenseBtn');
-  const licenseInput = document.getElementById('licenseKeyInput');
-  const licenseError = document.getElementById('licenseKeyError');
-  if (activateBtn && licenseInput) {
-    activateBtn.addEventListener('click', async () => {
-      const key = licenseInput.value.trim();
-      if (!key) { licenseError.textContent = 'Please enter a license key.'; licenseError.style.display = 'block'; return; }
-      activateBtn.disabled = true;
-      activateBtn.textContent = 'Activating...';
-      try {
-        const res = await fetch('/api/license', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key }) });
-        const data = await res.json();
-        if (data.ok) {
-          licenseError.style.display = 'none';
-          activateBtn.textContent = '✓ Activated!';
-          setTimeout(() => upgradeModal.close(), 1200);
-        } else {
-          licenseError.textContent = data.error || 'Invalid license key.';
-          licenseError.style.display = 'block';
-          activateBtn.disabled = false;
-          activateBtn.textContent = 'Activate License';
-        }
-      } catch {
-        licenseError.textContent = 'Network error — please try again.';
-        licenseError.style.display = 'block';
-        activateBtn.disabled = false;
-        activateBtn.textContent = 'Activate License';
-      }
-    });
-  }
 })();
-// ── Team Tab Live Status ──────────────────────────────────────────────────
-(function pollTeamStatus() {
-  const dot  = document.getElementById('teamStatusDot');
-  const text = document.getElementById('teamStatusText');
-  const row  = document.getElementById('teamUrlRow');
-  const inp  = document.getElementById('teamShareUrl');
-  const copyBtn = document.getElementById('copyTeamShareUrl');
 
-  async function check() {
+
+// ── Team Workspace Status ──────────────────────────────────────────────────
+(function initWorkspaceUi() {
+  const setupPanel = document.getElementById('workspaceSetupPanel');
+  const statusPanel = document.getElementById('workspaceStatusPanel');
+  const repoInput = document.getElementById('workspaceRepoInput');
+  const initBtn = document.getElementById('initWorkspaceBtn');
+  const syncBtn = document.getElementById('syncWorkspaceBtn');
+  const errorMsg = document.getElementById('workspaceSetupError');
+  const lastSyncText = document.getElementById('workspaceLastSyncText');
+
+  if (!setupPanel) return;
+
+  function updateUi(config) {
+    if (!config) return;
+    if (config.workspaceRepo) {
+      setupPanel.style.display = 'none';
+      statusPanel.classList.remove('hidden');
+      if (config.workspaceLastSync) {
+        lastSyncText.textContent = `Last synced: ${new Date(config.workspaceLastSync).toLocaleTimeString()}`;
+      }
+    } else {
+      setupPanel.style.display = 'block';
+      statusPanel.classList.add('hidden');
+    }
+  }
+
+  // Hook into config load
+  const originalLoadConfig = window.loadConfig; // Or handle it gracefully if no hook
+  
+  // Refresh loop
+  async function refresh() {
     try {
-      const res = await fetch('/api/team/ping', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source: 'self-check' }) });
-      if (res.ok) {
-        if (dot)  { dot.style.background = '#22c55e'; }
-        if (text) { text.innerHTML = '<strong style="color:#22c55e">Team Mode Active</strong> — sharing on your network'; }
-        if (row)  { row.style.display = 'flex'; row.classList.remove('hidden'); }
-        if (inp)  { inp.value = location.origin; }
-      } else { setInactive(); }
-    } catch { setInactive(); }
+      const { data: cfg } = await api.get('/api/v1/config');
+      if (cfg) updateUi(cfg);
+    } catch {}
   }
 
-  function setInactive() {
-    if (dot)  { dot.style.background = 'var(--muted)'; }
-    if (text) { text.innerHTML = 'Not active — start with <strong>npm run team</strong>'; }
-    if (row)  { row.classList.add('hidden'); }
-  }
-
-  if (copyBtn && inp) {
-    copyBtn.addEventListener('click', () => {
-      navigator.clipboard.writeText(inp.value).then(() => {
-        copyBtn.textContent = 'Copied!';
-        setTimeout(() => { copyBtn.textContent = 'Copy URL'; }, 2000);
+  initBtn.addEventListener('click', async () => {
+    initBtn.textContent = 'Connecting...';
+    initBtn.disabled = true;
+    errorMsg.style.display = 'none';
+    try {
+      const res = await fetch('/api/v1/team/workspace/init', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ repoUrl: repoInput.value })
       });
-    });
-  }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      await refresh();
+    } catch (e) {
+      errorMsg.textContent = e.message;
+      errorMsg.style.display = 'block';
+    } finally {
+      initBtn.textContent = 'Connect & Sync';
+      initBtn.disabled = false;
+    }
+  });
 
-  check();
-  setInterval(check, 30000);
+  syncBtn.addEventListener('click', async () => {
+    syncBtn.textContent = 'Syncing...';
+    syncBtn.disabled = true;
+    try {
+      await fetch('/api/v1/team/workspace/sync', { method: 'POST' });
+      await refresh();
+      // Reload activity explicitly
+      if (window.loadActivity) window.loadActivity();
+    } catch {} finally {
+      syncBtn.textContent = 'Sync Now';
+      syncBtn.disabled = false;
+    }
+  });
+
+  refresh();
+  setInterval(refresh, 60000);
 })();
 
-// ── License Status on Load ────────────────────────────────────────────────
-async function checkLicenseStatus() {
-  try {
-    const res  = await fetch('/api/license/status');
-    if (!res.ok) return;
-    const data = await res.json();
-    const tier = data.tier || 'free';
-    state.tier = tier;
-    
-    if (state.config) {
-      state.config.licenseTier = tier;
-    }
-    
-    const btn = document.getElementById('navUpgradeBtn');
-    if (btn && tier !== 'free') {
-      btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-        ${tier.toLowerCase() === 'team' ? '✓ Team Active' : '✓ Pro Active'}`;
-      btn.style.color = '#22c55e';
-    }
-    
-    if (typeof updateLicenseUI === 'function') {
-      updateLicenseUI();
-    }
-  } catch { /* silent */ }
-}
-checkLicenseStatus();
 
-// ── License Activation Modal ───────────────────────────────────────────────
-(function initLicenseModal() {
-  const modal = document.getElementById('upgradeModal');
-  const navBtn = document.getElementById('navUpgradeBtn');
-  const activateBtn = document.getElementById('activateLicenseBtn');
-  const licenseInput = document.getElementById('licenseKeyInput');
-
-  if (navBtn && modal) {
-    navBtn.addEventListener('click', () => {
-      document.getElementById('dropdownMenu')?.classList.remove('show');
-      modal.showModal();
-    });
-  }
-
-  if (activateBtn && licenseInput) {
-    activateBtn.addEventListener('click', async () => {
-      const key = licenseInput.value.trim();
-      if (!key) {
-        showToast('Please enter a license key', 'warn');
-        return;
-      }
-      activateBtn.disabled = true;
-      activateBtn.textContent = 'Activating...';
-      try {
-        const res = await api('/api/license/activate', {
-          method: 'POST',
-          body: JSON.stringify({ licenseKey: key })
-        });
-        showToast(`✅ Activated ${res.tier} License!`, 'success');
-        modal.close();
-        checkLicenseStatus(); // re-check to update UI
-      } catch (err) {
-        showToast(`Activation failed: ${err.message}`, 'error');
-      } finally {
-        activateBtn.disabled = false;
-        activateBtn.textContent = 'Activate';
-      }
-    });
-  }
-})();
 // ── Wizard Token Type Tab Switcher ────────────────────────────────────────
 (function() {
   const tabs = document.querySelectorAll('.wiz-token-tab');
@@ -2244,7 +2378,7 @@ function renderGhRepoRow(repo) {
         el.confirmCloneButton.disabled = true;
         el.confirmCloneButton.textContent = 'Cloning…';
         try {
-          const res = await api('/api/repos/clone', {
+          const res = await api('/api/v1/repos/clone', {
             method: 'POST',
             body: JSON.stringify({ root: dest, url: repo.clone_url, name: repo.name }),
           });
@@ -2313,7 +2447,7 @@ async function loadGhRepos(forceRefresh = false) {
   list.innerHTML = '';
 
   try {
-    const repos = await api('/api/github/repos');
+    const repos = await api('/api/v1/github/repos');
     _ghRepos = repos.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
 
     // Build list of locally known repo names from current state
@@ -2356,7 +2490,7 @@ let _insightsLoaded = false;
 async function loadInsights() {
   if (_insightsLoaded) return;
   try {
-    const res = await api('/api/insights/activity');
+    const res = await api('/api/v1/insights/activity');
     const graph = document.getElementById('contributionGraph');
     if (graph) {
       graph.innerHTML = '';
@@ -2401,11 +2535,6 @@ async function loadInsights() {
 const standupBtn = document.getElementById('standupButton');
 if (standupBtn) {
   standupBtn.addEventListener('click', async () => {
-    if (!state.tier || state.tier === 'free') {
-      document.getElementById('upgradeModal').showModal();
-      return;
-    }
-    
     standupBtn.disabled = true;
     standupBtn.textContent = 'Generating... (This takes a few seconds)';
     
@@ -2433,3 +2562,38 @@ if (standupBtn) {
     }
   });
 }
+
+// ── Auto-Updater Integration ────────────────────────────────────────────────
+if (window.electronAPI && el.updateReadyBtn) {
+  window.electronAPI.onUpdateAvailable(() => {
+    console.log('Update available, downloading...');
+  });
+
+  window.electronAPI.onUpdateDownloaded(() => {
+    console.log('Update downloaded. Prompting user.');
+    el.updateReadyBtn.classList.remove('hidden');
+    // Animate button attention
+    el.updateReadyBtn.style.animation = 'pulse 2s infinite';
+    
+    // Show the top banner
+    const banner = document.getElementById('systemUpdateBanner');
+    if (banner) banner.classList.remove('hidden');
+  });
+
+  const doUpdate = () => {
+    el.updateReadyBtn.textContent = 'Restarting...';
+    const applyBtn = document.getElementById('applyUpdateBtn');
+    if (applyBtn) applyBtn.textContent = 'Restarting...';
+    window.electronAPI.restartToUpdate();
+  };
+
+  el.updateReadyBtn.addEventListener('click', doUpdate);
+  
+  const applyBtn = document.getElementById('applyUpdateBtn');
+  if (applyBtn) {
+    applyBtn.addEventListener('click', doUpdate);
+  }
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+init();

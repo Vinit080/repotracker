@@ -1,10 +1,22 @@
+export let localIpcToken = null;
+
 export async function api(path, options = {}) {
+  if (!localIpcToken && window.electronAPI && window.electronAPI.getLocalToken) {
+    localIpcToken = await window.electronAPI.getLocalToken();
+  }
+
+  const headers = {
+    ...(options.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+    ...(options.headers || {})
+  };
+
+  if (localIpcToken) {
+    headers['Authorization'] = `Bearer ${localIpcToken}`;
+  }
+
   const response = await fetch(path, {
-    headers: {
-      ...(options.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
-      ...(options.headers || {})
-    },
-    ...options
+    ...options,
+    headers
   });
 
   if (response.status === 401) {
@@ -15,19 +27,7 @@ export async function api(path, options = {}) {
     throw err;
   }
 
-  // 403 with requiresUpgrade = show the upgrade modal, not a generic error toast
-  if (response.status === 403) {
-    let body = {};
-    try { body = await response.json(); } catch {}
-    if (body.requiresUpgrade) {
-      const err = new Error(body.error || 'Pro feature');
-      err.requiresUpgrade = true;
-      err.upgradeUrl = body.upgradeUrl || '';
-      err.feature = body.feature || '';
-      throw err;
-    }
-    throw new Error(body.error || `Forbidden (403)`);
-  }
+
 
   if (!response.ok) {
     let msg = `Request failed: ${response.status}`;

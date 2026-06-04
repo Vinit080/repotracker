@@ -12,8 +12,9 @@ This document explains the threat model, what the app does with your system, and
 
 | Version | Supported |
 |---------|-----------|
-| 0.2.x   | ✅ Active — current release |
-| 0.1.x   | ⚠️ Security fixes only |
+| 1.x.x   | ✅ Active — current release |
+| 0.x.x   | ⚠️ Security fixes only |
+| 0.2.x   | ❌ Unsupported |
 
 ---
 
@@ -43,7 +44,7 @@ RepoTracker interacts with sensitive parts of your development environment. Here
 - **Scope**: Full shell access — equivalent to opening a terminal yourself. Accessible from `localhost` only. The WebSocket origin is validated to prevent CSWSH attacks.
 
 ### API Credentials
-- **What**: Stores your GitHub PAT, Gemini API key, WakaTime API key, and LemonSqueezy license key locally in `data/config.json`.
+- **What**: Stores your GitHub PAT, Gemini API key, and WakaTime API key locally in `data/config.json`.
 - **Protections**:
   - Credentials are **never sent to the frontend JavaScript context**.
   - All external API calls are proxied server-side — the browser never sees raw keys.
@@ -61,12 +62,7 @@ RepoTracker interacts with sensitive parts of your development environment. Here
   - Login endpoint rate-limited to 10 attempts/60 seconds per IP.
   - `data/sessions.json` is gitignored.
 
-### License Key Storage
-- **What**: LemonSqueezy license key stored in `data/config.json`, alongside `licenseTier`, `licenseInstanceId`, and `licenseActivatedAt`.
-- **Protections**:
-  - The raw key is masked in all API responses — only `licenseKeySet: Boolean` and `licenseTier` are sent to the browser.
-  - License validation is done server-side via the LemonSqueezy API — the key never touches browser JavaScript.
-  - Activation consumes one LemonSqueezy slot; deactivation frees it for use on another machine.
+
 
 ---
 
@@ -95,7 +91,7 @@ RepoTracker interacts with sensitive parts of your development environment. Here
 - ❌ Does not auto-update without your explicit confirmation click
 - ❌ Does not store passwords in plaintext
 - ❌ Does not expose any port to the network (localhost only, unless Team Mode is explicitly enabled)
-- ❌ Does not send secrets (API keys, license keys) to the browser or frontend
+- ❌ Does not send secrets (API keys) to the browser or frontend
 - ❌ Does not create outbound connections without explicit user action
 - ❌ Does not use `eval()`, `new Function()`, or dynamic code execution anywhere
 
@@ -112,9 +108,9 @@ RepoTracker is fully open source. The security-critical files are:
 |---|---|
 | `src/server.js` | `.env` loading, Host/Origin validation, rate limiting, CSP headers, request routing |
 | `src/security.js` | PBKDF2 hashing implementation, session token generation & persistence, rate limiting |
-| `src/routes/api.js` | All 37 API route handlers, path traversal guards, WebSocket/PTY spawning, license feature gates |
+| `src/routes/api.js` | All 37 API route handlers, path traversal guards, WebSocket/PTY spawning |
 | `src/git.js` | Shell escaping and input sanitization for all git subcommands |
-| `src/license.js` | License key activation lifecycle — LS `/activate`, `/deactivate`, `/validate` calls |
+
 | `src/notify.js` | Desktop notification dispatch — PowerShell/AppleScript/notify-send with array arguments |
 | `src/utils.js` | `sanitizeConfigForResponse()` — the function that determines what reaches the browser |
 
@@ -150,4 +146,4 @@ Enable [Dependabot alerts](https://github.com/Vinit080/repotracker/settings/secu
 
 ---
 
-*Last updated: May 2026 — v0.2.0*
+*Last updated: June 2026 — v1.0.0*

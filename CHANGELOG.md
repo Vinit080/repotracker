@@ -20,6 +20,32 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.0.0] - 2026-06-04
+
+The Security and Freedom Update.
+
+### Added
+- **API Health Endpoint**: New `GET /api/health` route for monitoring server status and uptime.
+- **Graceful Shutdown**: Node.js server now handles SIGTERM/SIGINT gracefully, clearing intervals and cleanly closing the HTTP server.
+
+### Changed
+- **Free for Everyone**: Completely removed Lemon Squeezy integration, license validation logic, and upgrade modals. All "Pro" and "Team" features (AI review, AI standup, Team mode, Gist sync) are now 100% free and unlocked for all users.
+- **AI Rate Limiting**: Added a dedicated 10 requests/minute rate limit bucket for all AI endpoints to prevent API abuse.
+- **Session Security**: Active sessions now slide their TTL forward on each valid check, and `Secure` cookie flags are applied automatically when running outside of `localhost`.
+- **Team Tokens**: Upgraded team invite token entropy from 192-bit to 256-bit and implemented `timingSafeEqual` for secure token revocation.
+
+### Fixed
+- **Critical Crash**: Fixed an `ERR_MODULE_NOT_FOUND` crash in the `ai-autofix` route caused by a dead import of the removed `license.js` module.
+- **Security**: Fixed a potential shell injection vector in the internal PTY polyfill by changing `shell: true` to `shell: false`.
+- **Security**: Closed a CORS origin validation bypass that occurred when any `Authorization: Bearer` header was present.
+- **Security**: Secured the `/export` endpoint with session validation to prevent unauthorized LAN access to full dashboard data.
+- **Security**: Moved `/api/suggest-roots` behind the session auth guard to prevent local filesystem enumeration by unauthenticated clients.
+- **Data Leaks**: Removed raw error messages (`err.message`) from client-facing responses in setup, clone, and Slack integration routes to prevent internal path leakage.
+- **Memory/Resource Leaks**: Replaced `ipcRenderer.on` with `ipcRenderer.once` to prevent listener accumulation, and added a 20-page cap with a 15-second timeout to the GitHub repos pagination loop.
+- **Code Cleanup**: Removed hardcoded Cloudflare Worker fallback URL, replaced scattered magic version strings with `npm_package_version`, and deleted the redundant legacy `/api/standup` route.
+
+---
+
 ## [0.3.0] - 2026-05-29
 
 The Insights & AI Update.

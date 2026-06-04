@@ -47,12 +47,17 @@ export function normalizeConfig(input = {}) {
   const onboardingComplete = Boolean(input.onboardingComplete);
   const gistSyncId    = typeof input.gistSyncId   === 'string' ? input.gistSyncId   : DEFAULT_CONFIG.gistSyncId;
   const lastGistSync  = input.lastGistSync || DEFAULT_CONFIG.lastGistSync;
-  const licenseKey          = typeof input.licenseKey          === 'string' ? input.licenseKey          : DEFAULT_CONFIG.licenseKey;
-  const licenseTier         = typeof input.licenseTier         === 'string' ? input.licenseTier         : (DEFAULT_CONFIG.licenseTier || '');
-  const licenseInstanceId   = typeof input.licenseInstanceId   === 'string' ? input.licenseInstanceId   : (input.licenseInstanceId ?? null);
-  const licenseActivatedAt  = input.licenseActivatedAt || null;
+
   const teamTokens    = Array.isArray(input.teamTokens) ? input.teamTokens : DEFAULT_CONFIG.teamTokens;
-  const pingOptIn     = input.pingOptIn === true ? true : input.pingOptIn === false ? false : DEFAULT_CONFIG.pingOptIn;
+  const workspaceRepo = typeof input.workspaceRepo === 'string' ? input.workspaceRepo : DEFAULT_CONFIG.workspaceRepo;
+  const workspaceLastSync = input.workspaceLastSync || DEFAULT_CONFIG.workspaceLastSync;
+  const pingOptIn     = input.pingOptIn !== undefined ? input.pingOptIn : DEFAULT_CONFIG.pingOptIn;
+  
+  const slackWebhookUrl = typeof input.slackWebhookUrl === 'string' ? input.slackWebhookUrl : DEFAULT_CONFIG.slackWebhookUrl;
+  const linearApiKey = typeof input.linearApiKey === 'string' ? input.linearApiKey : DEFAULT_CONFIG.linearApiKey;
+  const jiraDomain = typeof input.jiraDomain === 'string' ? input.jiraDomain : DEFAULT_CONFIG.jiraDomain;
+  const jiraEmail = typeof input.jiraEmail === 'string' ? input.jiraEmail : DEFAULT_CONFIG.jiraEmail;
+  const jiraApiToken = typeof input.jiraApiToken === 'string' ? input.jiraApiToken : DEFAULT_CONFIG.jiraApiToken;
 
   return {
     roots: roots.length ? [...new Set(roots.map((root) => path.resolve(root)))] : DEFAULT_CONFIG.roots,
@@ -65,12 +70,16 @@ export function normalizeConfig(input = {}) {
     onboardingComplete,
     gistSyncId,
     lastGistSync,
-    licenseKey,
-    licenseTier,
-    licenseInstanceId,
-    licenseActivatedAt,
+
     teamTokens,
+    workspaceRepo,
+    workspaceLastSync,
     pingOptIn,
+    slackWebhookUrl,
+    linearApiKey,
+    jiraDomain,
+    jiraEmail,
+    jiraApiToken,
   };
 }
 
@@ -88,18 +97,20 @@ export function sanitizeConfigForResponse(config) {
     githubPat:          config.githubPat      ? MASK : '',
     aiApiKey:           config.aiApiKey       ? MASK : '',
     wakatimeApiKey:     config.wakatimeApiKey ? MASK : '',
-    // P11: mask licenseKey just like other secrets — browser only needs to know if one is set
-    licenseKey:         config.licenseKey ? MASK : '',
-    licenseKeySet:      Boolean(config.licenseKey),
-    licenseTier:        config.licenseTier || 'core',      // tier is safe to expose (not a secret)
-    licenseInstanceId:  config.licenseInstanceId || null,  // safe: opaque LS instance ID
-    licenseActivatedAt: config.licenseActivatedAt || null,
+
     appPasswordSet:     Boolean(config.appPasswordHash),
     onboardingComplete: Boolean(config.onboardingComplete),
     gistSyncId:         config.gistSyncId || '',
     lastGistSync:       config.lastGistSync || null,
     pingOptIn:          config.pingOptIn ?? null,
     teamMode:           Boolean(process.env.REPOTRACKER_TEAM === '1' || process.argv?.includes?.('--team')),
+    workspaceRepo:      config.workspaceRepo || '',
+    workspaceLastSync:  config.workspaceLastSync || null,
+    slackWebhookUrl:    config.slackWebhookUrl ? MASK : '',
+    linearApiKey:       config.linearApiKey ? MASK : '',
+    jiraDomain:         config.jiraDomain || '', // Safe to expose
+    jiraEmail:          config.jiraEmail || '',  // Safe to expose
+    jiraApiToken:       config.jiraApiToken ? MASK : '',
   };
 }
 

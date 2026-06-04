@@ -1,4 +1,4 @@
-﻿/**
+/**
  * security.js — Rate limiting, security headers, Host-guard, CSRF,
  *               password hashing (PBKDF2), and session management.
  *
@@ -15,6 +15,8 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SESSION_FILE = path.join(__dirname, '..', 'data', 'sessions.json');
+
+export const LOCAL_IPC_TOKEN = randomBytes(32).toString('hex');
 
 // ── Password Hashing (PBKDF2-SHA512, 100 000 iterations) ─────────────────────
 
@@ -173,6 +175,9 @@ export function isValidSession(token) {
     persistSessions(); // fire-and-forget
     return false;
   }
+  // Slide the TTL forward on each valid check (keeps active users logged in)
+  _sessions.set(token, Date.now() + SESSION_TTL_MS);
+  persistSessions();
   return true;
 }
 
@@ -243,7 +248,7 @@ export function applySecurityHeaders(response) {
   response.setHeader('Referrer-Policy', 'no-referrer');
   response.setHeader(
     'Content-Security-Policy',
-    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://formspree.io https://api.github.com https://gist.github.com https://api.gist.github.com"
+    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://formspree.io https://api.github.com https://gist.github.com https://api.gist.github.com https://generativelanguage.googleapis.com https://api.linear.app https://hooks.slack.com https://*.atlassian.net https://wakatime.com"
   );
 }
 
@@ -279,8 +284,6 @@ export function isAllowedHost(request) {
 export function isAllowedOrigin(request) {
   const origin = request.headers.origin;
   if (!origin) return true;
-  // Team tokens in Authorization header bypass Origin check (API clients)
-  if (request.headers.authorization?.startsWith('Bearer ')) return true;
   try {
     const { hostname } = new URL(origin);
     if (ALLOWED_HOSTS.has(hostname)) return true;
@@ -290,3 +293,16 @@ export function isAllowedOrigin(request) {
   } catch { return false; }
 }
 
+/**
+ * Build a Set-Cookie header value for the session token.
+ * Adds the Secure flag when not running on localhost.
+ * @param {string} token
+ * @param {import('node:http').IncomingMessage} [request]
+ * @returns {string}
+ */
+export function makeSessionCookie(token, request) {
+  const host = request?.headers?.host?.replace(/:\d+$/, '') || 'localhost';
+  const isLocalhost = host === 'localhost' || host === '127.0.0.1' || host === '::1';
+  const secureFlag = isLocalhost ? '' : '; Secure';
+  return `repo_auth=${token}; HttpOnly; SameSite=Strict; Path=/${secureFlag}`;
+}
