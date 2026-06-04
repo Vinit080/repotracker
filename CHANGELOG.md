@@ -18,6 +18,13 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.0.3] - 2026-06-04
+
+### Fixed
+- **Linux Build**: Switched to the `electron-builder` static AppImage runtime toolset to permanently fix build failures and eliminate the `libfuse2` dependency on modern Linux distributions (like Ubuntu 24.04).
+
+---
+
 ## [1.0.2] - 2026-06-04
 
 ### Fixed
