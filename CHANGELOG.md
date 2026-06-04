@@ -18,6 +18,13 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.0.6] - 2026-06-04
+
+### Fixed
+- **CI/CD Pipeline**: Added `permissions: contents: write` to the GitHub Actions release workflow. This fixes the `403 Forbidden` error so `electron-builder` has the required permissions to publish the generated AppImage, executable, and DMG files to the GitHub Releases page.
+
+---
+
 ## [1.0.5] - 2026-06-04
 
 ### Fixed

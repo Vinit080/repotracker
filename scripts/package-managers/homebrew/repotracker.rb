@@ -1,5 +1,5 @@
 cask "repotracker" do
-  version "1.0.5"
+  version "1.0.6"
   sha256 :no_check # or add the specific sha256 here
 
   url "https://github.com/Vinit080/repotracker/releases/download/v#{version}/RepoTracker-#{version}-mac.dmg"
