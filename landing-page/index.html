@@ -462,6 +462,7 @@
         <div id="download-buttons" style="display: flex; gap: 16px; justify-content: center; flex-wrap: wrap;">
             <a href="https://github.com/Vinit080/repotracker/releases/latest" id="btn-win" class="btn btn-primary">Download for Windows (.exe)</a>
             <a href="https://github.com/Vinit080/repotracker/releases/latest" id="btn-mac" class="btn btn-primary" style="background-color: #3b82f6; box-shadow: 0 0 20px rgba(59, 130, 246, 0.5); border-color: rgba(59, 130, 246, 0.5);">Download for Mac (.dmg)</a>
+            <a href="https://github.com/Vinit080/repotracker/releases/latest" id="btn-linux" class="btn btn-primary" style="background-color: #10b981; box-shadow: 0 0 20px rgba(16, 185, 129, 0.5); border-color: rgba(16, 185, 129, 0.5);">Download for Linux (.AppImage)</a>
             <a href="#pricing" class="btn btn-secondary" style="margin-left: 0;">View Pricing</a>
         </div>
         <p id="version-info" style="margin-top: 16px; font-size: 0.95rem; color: var(--muted);"></p>
@@ -558,6 +559,7 @@
 
                     const winBtn = document.getElementById('btn-win');
                     const macBtn = document.getElementById('btn-mac');
+                    const linuxBtn = document.getElementById('btn-linux');
 
                     const winAsset = data.assets.find(a => a.name.endsWith('.exe'));
                     if (winAsset) {
@@ -567,6 +569,11 @@
                     const macAsset = data.assets.find(a => a.name.endsWith('.dmg'));
                     if (macAsset) {
                         macBtn.href = macAsset.browser_download_url;
+                    }
+
+                    const linuxAsset = data.assets.find(a => a.name.endsWith('.AppImage'));
+                    if (linuxAsset && linuxBtn) {
+                        linuxBtn.href = linuxAsset.browser_download_url;
                     }
                 }
             } catch (error) {
