@@ -18,6 +18,14 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.0.8] - 2026-06-04
+
+### Fixed
+- **Preload Script**: Renamed `preload.js` to `preload.cjs` to fix Electron IPC and auto-update bindings in ESM mode.
+- **Headless Mode**: Fixed `execFile` crash on boot.
+
+---
+
 ## [1.0.7] - 2026-06-04
 
 ### Fixed
