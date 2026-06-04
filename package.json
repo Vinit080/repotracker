@@ -1,6 +1,6 @@
 {
   "name": "repotracker",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "Intelligent local Git repository manager with AI-powered commit messages, health scoring, visual branch management, and an integrated terminal.",
   "author": "Vinzone <hello@vinzone.dev>",
   "license": "MIT",
@@ -76,7 +76,10 @@
       "icon": "public/logo.png"
     },
     "publish": [
-      "github"
+      {
+        "provider": "github",
+        "releaseType": "release"
+      }
     ],
     "files": [
       "src/**/*",

@@ -18,6 +18,13 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.0.7] - 2026-06-04
+
+### Fixed
+- **CI/CD Pipeline**: Configured `electron-builder` to publish releases with `releaseType: "release"` instead of the default `draft`. This ensures the public GitHub Releases API correctly serves the latest version to the landing page.
+
+---
+
 ## [1.0.6] - 2026-06-04
 
 ### Fixed
