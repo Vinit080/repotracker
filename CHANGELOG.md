@@ -18,6 +18,13 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.0.4] - 2026-06-04
+
+### Fixed
+- **Linux Build**: Reverted static AppImage toolset (which was incompatible with the current `electron-builder` schema) and instead migrated the GitHub Actions runner from `ubuntu-latest` (Ubuntu 24.04) to `ubuntu-22.04` to permanently restore native FUSE 2 compatibility for AppImage generation.
+
+---
+
 ## [1.0.3] - 2026-06-04
 
 ### Fixed
