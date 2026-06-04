@@ -6,6 +6,9 @@ import pkg from 'electron-updater';
 const { autoUpdater } = pkg;
 import { LOCAL_IPC_TOKEN } from './security.js';
 
+// Disable hardware acceleration to prevent GPU crashes on Windows
+app.disableHardwareAcceleration();
+
 // Configure logging
 log.transports.file.level = 'info';
 autoUpdater.logger = log;
