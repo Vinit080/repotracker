@@ -1,10 +1,19 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import os from 'node:os';
+import { readFileSync } from 'node:fs';
 
 export const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export const APP_ROOT = path.join(__dirname, '..');
+let packageVersion = '0.0.0';
+try {
+  packageVersion = JSON.parse(readFileSync(path.join(APP_ROOT, 'package.json'), 'utf8')).version || packageVersion;
+} catch {
+  // Keep the fallback for unusual packaged/runtime environments.
+}
+
+export const APP_VERSION = process.env.npm_package_version || packageVersion;
 export const DATA_DIR = path.join(os.homedir(), '.repotracker');
 export const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 export const CONFIG_FILE = path.join(DATA_DIR, 'config.json');

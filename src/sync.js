@@ -19,14 +19,13 @@ async function gitCmd(args, env = {}) {
 export async function initWorkspace(repoUrl, githubPat, userName) {
   if (!repoUrl || !githubPat || !userName) throw new Error('Missing repo URL, PAT, or username');
   
-  // Create an authenticated URL
-  const authUrl = repoUrl.replace('https://', `https://${userName}:${githubPat}@`);
+  const authHeader = `AUTHORIZATION: basic ${Buffer.from(`${userName}:${githubPat}`).toString('base64')}`;
 
   try {
     const stat = await fs.stat(WORKSPACE_DIR);
     if (stat.isDirectory()) {
-      // Already cloned, update the remote URL to ensure PAT is fresh
-      await gitCmd(['remote', 'set-url', 'origin', authUrl]);
+      // Already cloned, update the remote URL to ensure it doesn't contain a leaked PAT
+      await gitCmd(['remote', 'set-url', 'origin', repoUrl]);
       return;
     }
   } catch (e) {
@@ -37,7 +36,7 @@ export async function initWorkspace(repoUrl, githubPat, userName) {
   await fs.mkdir(parentDir, { recursive: true });
   
   const git = process.platform === 'win32' ? 'git.exe' : 'git';
-  await execFileAsync(git, ['clone', authUrl, WORKSPACE_DIR], { cwd: parentDir });
+  await execFileAsync(git, ['-c', `http.extraHeader=${authHeader}`, 'clone', repoUrl, WORKSPACE_DIR], { cwd: parentDir });
   
   // Set local git config for commits
   await gitCmd(['config', 'user.name', userName]);
@@ -53,13 +52,14 @@ export async function syncWorkspace(config) {
     return { error: 'Workspace not configured properly.' };
   }
 
-  const { userName } = config;
+  const { userName, githubPat } = config;
   const userDir = path.join(WORKSPACE_DIR, 'data', userName);
+  const authHeader = `AUTHORIZATION: basic ${Buffer.from(`${userName}:${githubPat}`).toString('base64')}`;
 
   try {
     // 1. Pull latest from remote
     try {
-      await gitCmd(['pull', '--rebase', 'origin', 'main']);
+      await gitCmd(['-c', `http.extraHeader=${authHeader}`, 'pull', '--rebase', 'origin', 'main']);
     } catch (e) {
       console.warn('[Sync] Pull failed or branch missing. If empty repo, continuing...', e.message);
     }
@@ -80,7 +80,7 @@ export async function syncWorkspace(config) {
     const { stdout: status } = await gitCmd(['status', '--porcelain']);
     if (status.trim()) {
       await gitCmd(['commit', '-m', `sync: update state for ${userName}`]);
-      await gitCmd(['push', 'origin', 'HEAD:main']);
+      await gitCmd(['-c', `http.extraHeader=${authHeader}`, 'push', 'origin', 'HEAD:main']);
     }
 
     return { ok: true, syncedAt: new Date().toISOString() };

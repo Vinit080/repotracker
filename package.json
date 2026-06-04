@@ -1,6 +1,6 @@
 {
   "name": "repotracker",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "Intelligent local Git repository manager with AI-powered commit messages, health scoring, visual branch management, and an integrated terminal.",
   "author": "Vinzone <hello@vinzone.dev>",
   "license": "MIT",
@@ -37,7 +37,8 @@
     "build:electron": "electron-builder",
     "docker:build": "docker build -t repotracker .",
     "docker:up": "docker compose up -d",
-    "postinstall": "node src/setup-vendor.js"
+    "postinstall": "node src/setup-vendor.js",
+    "prepare": "node scripts/setup-hooks.js"
   },
   "engines": {
     "node": ">=20"
@@ -47,7 +48,8 @@
     "electron-updater": "^6.1.8",
     "ws": "^8.21.0",
     "xterm": "^5.3.0",
-    "xterm-addon-fit": "^0.8.0"
+    "xterm-addon-fit": "^0.8.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "caxa": "^3.0.1",

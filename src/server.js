@@ -20,12 +20,12 @@ try {
   }
 } catch { /* .env is optional — silently skip if missing */ }
 
-import { PORT, CONFIG_FILE, DATA_DIR, PUBLIC_DIR, MIME_TYPES, DEFAULT_CONFIG, TEAM_MODE, BIND_HOST, PING_URL, INSTALL_ID_FILE } from './constants.js';
+import { PORT, CONFIG_FILE, DATA_DIR, PUBLIC_DIR, MIME_TYPES, DEFAULT_CONFIG, TEAM_MODE, BIND_HOST, PING_URL, INSTALL_ID_FILE, APP_VERSION } from './constants.js';
 import { writeJsonIfMissing, sendText, sendJson, readJson, writeJson, normalizeConfig } from './utils.js';
 import { handleApi, handleUpgrade } from './routes/api.js';
 import { scanRepos } from './git.js';
 import { notifyDesktop } from './notify.js';
-import { applySecurityHeaders, isAllowedHost, isAllowedOrigin, checkRateLimit, cleanupExpired, hashPassword, isHashValid, loadSessions, isValidSession } from './security.js';
+import { applySecurityHeaders, isAllowedHost, isAllowedOrigin, checkRateLimit, cleanupExpired, hashPassword, isHashValid, loadSessions, isValidSession, LOCAL_IPC_TOKEN } from './security.js';
 import { generateDashboardExport } from './export.js';
 import { META_FILE } from './constants.js';
 
@@ -149,16 +149,14 @@ const server = http.createServer(async (request, response) => {
     // GET /export — generate and serve a self-contained HTML snapshot export
     const pathname2 = new URL(request.url, 'http://localhost').pathname;
     if (request.method === 'GET' && pathname2 === '/export') {
-      // Auth guard: export contains all repo data — require a valid session if password is set
+      // Auth guard: export contains all repo data — require a valid session or local IPC token
       const exportConfig = normalizeConfig(await readJson(CONFIG_FILE, DEFAULT_CONFIG));
-      if (exportConfig.appPasswordHash) {
-        const cookies = request.headers.cookie || '';
-        const match = cookies.match(/(^|;\s*)repo_auth=([^;]+)/);
-        const token = match ? match[2] : (request.headers.authorization?.replace('Bearer ', '') || '');
-        if (!isValidSession(token)) {
-          sendText(response, 401, 'Unauthorized');
-          return;
-        }
+      const cookies = request.headers.cookie || '';
+      const match = cookies.match(/(^|;\s*)repo_auth=([^;]+)/);
+      const token = match ? match[2] : (request.headers.authorization?.replace('Bearer ', '') || '');
+      if (token !== LOCAL_IPC_TOKEN && !isValidSession(token)) {
+        sendText(response, 401, 'Unauthorized');
+        return;
       }
       try {
         const meta   = await readJson(META_FILE, {});
@@ -260,7 +258,7 @@ async function sendInstallPing(config) {
     await fetch(PING_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: installId, version: process.env.npm_package_version || '0.0.0', platform: process.platform }),
+      body: JSON.stringify({ id: installId, version: APP_VERSION, platform: process.platform }),
       signal: AbortSignal.timeout(5000),
     }).catch(() => {}); // silent fail — never crash on ping
     await writeJson(INSTALL_ID_FILE, { id: installId, pinged: true, ts: Date.now() });
@@ -272,13 +270,13 @@ server.listen(PORT, BIND_HOST, async () => {
     const lanIp = getLanIp();
     console.log('');
     console.log('  ┌──────────────────────────────────────────────────┐');
-    console.log('  │  🚀 RepoTracker v1.0.0  —  TEAM MODE             │');
+    console.log(`  │  🚀 RepoTracker v${APP_VERSION}  —  TEAM MODE             │`);
     console.log(`  │  Solo:  http://localhost:${PORT}                    │`);
     if (lanIp) console.log(`  │  Team:  http://${lanIp}:${PORT}             │`);
     console.log('  └──────────────────────────────────────────────────┘');
     console.log('');
   } else {
-    console.log(`RepoTracker v1.0.0 running at http://localhost:${PORT}`);
+    console.log(`RepoTracker v${APP_VERSION} running at http://localhost:${PORT}`);
       if (!process.versions.electron) {
         import('node:child_process').then(({ execFile }) => {
           const url = `http://localhost:${PORT}`;

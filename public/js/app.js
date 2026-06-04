@@ -1,5 +1,5 @@
 import { api, localIpcToken } from './api.js';
-import { escapeHtml, escapeAttribute, renderChip, emptySmall } from './components.js';
+import { escapeHtml, escapeAttribute, safeUrl, renderChip, emptySmall } from './components.js';
 
 // ─── State ────────────────────────────────────────────────────────────────────
 const state = {
@@ -567,7 +567,7 @@ function renderSpotlight() {
       <p class="muted">${escapeHtml((repo.attention || []).join(' - '))}</p>
       <div class="card-actions">
         <button class="ghost" type="button" data-open-spotlight="${escapeAttribute(repo.path)}">Open folder</button>
-        ${remote && /^https:\/\//.test(remote) ? `<a class="remote-link" href="${escapeAttribute(remote)}" target="_blank" rel="noreferrer">Remote</a>` : ''}
+        ${remote && /^https:\/\//.test(remote) ? `<a class="remote-link" href="${safeUrl(remote)}" target="_blank" rel="noreferrer">Remote</a>` : ''}
       </div>
     </div>
   `;
@@ -1084,7 +1084,7 @@ if (el.myTicketsBtn) {
       return;
     }
     list.innerHTML = tickets.map((issue, i) => `
-      <a href="${escapeAttribute(issue.url)}" target="_blank" rel="noreferrer" class="ticket-row" style="animation-delay:${i * 40}ms">
+      <a href="${safeUrl(issue.url)}" target="_blank" rel="noreferrer" class="ticket-row" style="animation-delay:${i * 40}ms">
         <span class="ticket-source-badge ${getSourceKey(issue.source)}" title="${escapeAttribute(issue.source)}">${escapeHtml(getSourceAbbr(issue.source))}</span>
         <div class="ticket-body">
           <div class="ticket-title">${escapeHtml(issue.title)}</div>
@@ -1270,10 +1270,10 @@ el.feedbackForm.addEventListener('submit', async e => {
   submitBtn.disabled = true;
   submitBtn.textContent = 'Sending...';
 
-  // REPLACE THESE WITH YOUR ACTUAL FORMSPREE IDs
-  const FORMSPREE_ID_1 = 'mzdwjekj';
-  const FORMSPREE_ID_2 = 'mpqnydqy';
-  const FORMSPREE_ID_3 = 'mlgvpbqq';
+  // Formspree IDs removed for security
+  const FORMSPREE_ID_1 = '';
+  const FORMSPREE_ID_2 = '';
+  const FORMSPREE_ID_3 = '';
 
   try {
     const promises = [];
@@ -1444,6 +1444,9 @@ async function completeWizard() {
     if (appPassword) {
       await _refreshSession(appPassword);
       el.logoutBtn.classList.remove('hidden');
+    } else if (!state.config.appPasswordSet) {
+      await _refreshSession('');
+      el.logoutBtn.classList.add('hidden');
     }
     // Enter the dashboard
     el.wizard.classList.remove('active');
@@ -1590,7 +1593,7 @@ el.standupButton.addEventListener('click', async () => {
   el.standupDialog.showModal();
   el.standupContent.textContent = 'Generating your AI Standup...';
   try {
-    const data = await api('/api/v1/standup', { method: 'POST', body: JSON.stringify({ commits: state.timeline }) });
+    const data = await api('/api/v1/ai/standup', { method: 'POST', body: JSON.stringify({ commits: state.timeline }) });
     if (data.report) {
       el.standupContent.textContent = data.report;
       
@@ -1730,7 +1733,8 @@ document.addEventListener('DOMContentLoaded', () => {
         method: 'POST',
         body: JSON.stringify({ path: currentChatRepo.path, message: msg })
       });
-      aiBubble.innerHTML = window.marked ? window.marked.parse(res.reply) : res.reply.replace(/\\n/g, '<br>');
+      const parsed = window.marked ? window.marked.parse(res.reply) : res.reply.replace(/\n/g, '<br>');
+      aiBubble.innerHTML = window.DOMPurify ? window.DOMPurify.sanitize(parsed) : parsed;
     } catch (err) {
       aiBubble.textContent = '❌ Error: ' + err.message;
       aiBubble.style.color = 'var(--danger)';
@@ -2231,7 +2235,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Refresh loop
   async function refresh() {
     try {
-      const { data: cfg } = await api.get('/api/v1/config');
+      const cfg = await api('/api/v1/config');
       if (cfg) updateUi(cfg);
     } catch {}
   }
@@ -2339,7 +2343,7 @@ function renderGhRepoRow(repo) {
   info.innerHTML = `
     <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
       ${visIcon}
-      <a href="${repo.html_url}" target="_blank" rel="noopener" style="font-size:13.5px;font-weight:600;color:var(--primary);text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:280px;" title="${repo.full_name}">${repo.full_name}</a>
+      <a href="${safeUrl(repo.html_url)}" target="_blank" rel="noopener" style="font-size:13.5px;font-weight:600;color:var(--primary);text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:280px;" title="${escapeAttribute(repo.full_name)}">${escapeHtml(repo.full_name)}</a>
       ${repo.language ? `<span style="font-size:11px;padding:1px 7px;border-radius:99px;background:var(--panel-strong);color:var(--muted);border:1px solid var(--border);">${repo.language}</span>` : ''}
       ${repo.fork ? `<span style="font-size:11px;padding:1px 7px;border-radius:99px;background:#fef3c7;color:#92400e;">fork</span>` : ''}
     </div>
@@ -2539,7 +2543,7 @@ if (standupBtn) {
     standupBtn.textContent = 'Generating... (This takes a few seconds)';
     
     try {
-      const res = await api('/api/ai/standup', { method: 'POST' });
+      const res = await api('/api/v1/ai/standup', { method: 'POST' });
       const dialog = document.getElementById('standupDialog');
       const content = document.getElementById('standupContent');
       
@@ -2549,6 +2553,7 @@ if (standupBtn) {
         .replace(/\\*(.*?)\\*/g, '<em>$1</em>')
         .replace(/\\n/g, '<br>');
         
+      if (window.DOMPurify) html = window.DOMPurify.sanitize(html);
       content.innerHTML = `<div style="font-family: inherit; line-height: 1.6; color: var(--text);">${html}</div>`;
       dialog.showModal();
     } catch (err) {

@@ -11,6 +11,15 @@ export function escapeAttribute(value) {
   return escapeHtml(value).replaceAll('`', '&#096;');
 }
 
+export function safeUrl(url) {
+  if (!url) return '';
+  const str = String(url).trim();
+  if (/^(?:javascript|data|vbscript):/i.test(str)) {
+    return 'about:blank';
+  }
+  return escapeAttribute(str);
+}
+
 export function renderChip(label, tone = '') {
   const className = ['chip', tone].filter(Boolean).join(' ');
   return `<span class="${className}">${escapeHtml(label)}</span>`;

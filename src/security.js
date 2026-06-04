@@ -8,13 +8,12 @@
  * Zero external dependencies — Node.js built-ins only.
  */
 
-import { pbkdf2Sync, randomBytes, timingSafeEqual } from 'node:crypto';
+import { pbkdf2Sync, randomBytes, timingSafeEqual, createHash } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { DATA_DIR } from './constants.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const SESSION_FILE = path.join(__dirname, '..', 'data', 'sessions.json');
+const SESSION_FILE = path.join(DATA_DIR, 'sessions.json');
 
 export const LOCAL_IPC_TOKEN = randomBytes(32).toString('hex');
 
@@ -27,7 +26,7 @@ export const LOCAL_IPC_TOKEN = randomBytes(32).toString('hex');
  */
 export function hashPassword(password) {
   const salt = randomBytes(16).toString('hex');
-  const hash = pbkdf2Sync(password, salt, 100_000, 64, 'sha512').toString('hex');
+  const hash = pbkdf2Sync(password, salt, 310_000, 64, 'sha512').toString('hex');
   return `${salt}:${hash}`;
 }
 
@@ -48,7 +47,7 @@ export function verifyPassword(password, stored) {
   try {
     const [salt, storedHash] = stored.split(':');
     if (!salt || !storedHash) return false;
-    const derived = pbkdf2Sync(password, salt, 100_000, 64, 'sha512').toString('hex');
+    const derived = pbkdf2Sync(password, salt, 310_000, 64, 'sha512').toString('hex');
     return timingSafeEqual(Buffer.from(derived, 'hex'), Buffer.from(storedHash, 'hex'));
   } catch {
     return false;
@@ -115,15 +114,19 @@ export async function loadSessions() {
  */
 export function createSession() {
   const token = randomBytes(32).toString('hex');
-  _sessions.set(token, Date.now() + SESSION_TTL_MS);
+  const tokenHash = createHash('sha256').update(token).digest('hex');
+  _sessions.set(tokenHash, Date.now() + SESSION_TTL_MS);
   persistSessions(); // fire-and-forget
   return token;
 }
 
 export function destroySession(token) {
-  if (token && _sessions.has(token)) {
-    _sessions.delete(token);
-    persistSessions(); // fire-and-forget
+  if (token) {
+    const tokenHash = createHash('sha256').update(token).digest('hex');
+    if (_sessions.has(tokenHash)) {
+      _sessions.delete(tokenHash);
+      persistSessions(); // fire-and-forget
+    }
   }
 }
 
@@ -168,15 +171,16 @@ export function isValidTeamToken(raw, teamTokens) {
  */
 export function isValidSession(token) {
   if (!token) return false;
-  const exp = _sessions.get(token);
+  const tokenHash = createHash('sha256').update(token).digest('hex');
+  const exp = _sessions.get(tokenHash);
   if (!exp) return false;
   if (Date.now() > exp) {
-    _sessions.delete(token);
+    _sessions.delete(tokenHash);
     persistSessions(); // fire-and-forget
     return false;
   }
   // Slide the TTL forward on each valid check (keeps active users logged in)
-  _sessions.set(token, Date.now() + SESSION_TTL_MS);
+  _sessions.set(tokenHash, Date.now() + SESSION_TTL_MS);
   persistSessions();
   return true;
 }

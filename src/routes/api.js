@@ -6,7 +6,7 @@ import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { CONFIG_FILE, META_FILE, DEFAULT_CONFIG } from '../constants.js';
 import { readJson, writeJson, writeJsonIfMissing, normalizeConfig, readRequestJson, sendJson, sanitizeConfigForResponse } from '../utils.js';
 import { scanRepos, runGit, detectScripts, getCommitActivity, getStandupData } from '../git.js';
-import { hashPassword, verifyPassword, createSession, destroySession, isValidSession, makeSessionCookie, LOCAL_IPC_TOKEN } from '../security.js';
+import { hashPassword, verifyPassword, createSession, destroySession, isValidSession, makeSessionCookie, LOCAL_IPC_TOKEN, isValidTeamToken } from '../security.js';
 import { notifyDesktop } from '../notify.js';
 import os from 'node:os';
 import { WebSocketServer } from 'ws';
@@ -114,6 +114,15 @@ function isPathInside(parentPath, childPath) {
   return child === parent || child.startsWith(parent + path.sep);
 }
 
+function getSafeEnv() {
+  const env = { ...process.env };
+  delete env.LEMONSQUEEZY_API_KEY;
+  delete env.LEMONSQUEEZY_STORE_ID;
+  delete env.LEMONSQUEEZY_PRO_PRODUCT_ID;
+  delete env.LEMONSQUEEZY_TEAM_PRODUCT_ID;
+  return env;
+}
+
 /** Ensure an existing path resolves inside one of the user's configured root dirs. */
 async function isPathWithinRoots(candidatePath, roots) {
   let target;
@@ -168,10 +177,10 @@ function getCookie(request, name) {
 }
 
 function getSessionToken(request) {
+  let token = getCookie(request, 'repo_auth') || '';
+  if (token) return token;
   const authHeader = request.headers.authorization || '';
-  let token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
-  if (!token) token = getCookie(request, 'repo_auth') || '';
-  return token;
+  return authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
 }
 
 export async function handleApi(request, response) {
@@ -230,6 +239,11 @@ export async function handleApi(request, response) {
     }
 
     if (!config.appPasswordHash) {
+      const isTeam = process.env.REPOTRACKER_TEAM === '1' || process.argv.includes('--team');
+      if (isTeam && body.token !== LOCAL_IPC_TOKEN) {
+        sendJson(response, 403, { error: 'Password required in Team Mode' });
+        return;
+      }
       // No password configured — issue a session token so the client has one
       const token = createSession();
       sendJson(response, 200, { ok: true, token }, { 'Set-Cookie': makeSessionCookie(token, request) });
@@ -256,7 +270,7 @@ export async function handleApi(request, response) {
     if (!token && requestUrl.pathname === '/api/v1/tasks/stream') {
       token = requestUrl.searchParams.get('token') || '';
     }
-    if (!isValidSession(token)) {
+    if (!isValidSession(token) && !isValidTeamToken(token, config.teamTokens)) {
       sendJson(response, 401, { error: 'Unauthorized', userName: config.userName || '' });
       return;
     }
@@ -333,6 +347,13 @@ export async function handleApi(request, response) {
     const pingOptIn           = config.pingOptIn           ?? null;
     const gistSyncId          = config.gistSyncId          || '';
     const lastGistSync        = config.lastGistSync        || null;
+    const workspaceRepo       = body.workspaceRepo         !== undefined ? body.workspaceRepo : config.workspaceRepo;
+    const workspaceLastSync   = config.workspaceLastSync   || null;
+    const slackWebhookUrl     = body.slackWebhookUrl       !== undefined ? body.slackWebhookUrl : config.slackWebhookUrl;
+    const linearApiKey        = body.linearApiKey          !== undefined ? body.linearApiKey : config.linearApiKey;
+    const jiraDomain          = body.jiraDomain            !== undefined ? body.jiraDomain : config.jiraDomain;
+    const jiraEmail           = body.jiraEmail             !== undefined ? body.jiraEmail : config.jiraEmail;
+    const jiraApiToken        = body.jiraApiToken          !== undefined ? body.jiraApiToken : config.jiraApiToken;
 
     const updatedConfig = normalizeConfig({
       roots:          body.roots,
@@ -348,6 +369,13 @@ export async function handleApi(request, response) {
       pingOptIn,
       gistSyncId,
       lastGistSync,
+      workspaceRepo,
+      workspaceLastSync,
+      slackWebhookUrl,
+      linearApiKey,
+      jiraDomain,
+      jiraEmail,
+      jiraApiToken
     });
     await writeJson(CONFIG_FILE, updatedConfig);
     sendJson(response, 200, sanitizeConfigForResponse(updatedConfig));
@@ -542,7 +570,12 @@ export async function handleApi(request, response) {
     }
     try {
       const { stdout } = await execFileAsync('git', ['remote', 'get-url', 'origin'], { cwd: process.cwd() });
-      if (!stdout.trim().startsWith('https://github.com/Vinit080/repotracker')) {
+      try {
+        const remoteUrl = new URL(stdout.trim());
+        if (remoteUrl.hostname !== 'github.com' || !remoteUrl.pathname.startsWith('/Vinit080/repotracker')) {
+          throw new Error('Mismatch');
+        }
+      } catch {
         sendJson(response, 403, { error: 'Remote URL mismatch — update aborted' });
         return;
       }
@@ -729,7 +762,7 @@ export async function handleApi(request, response) {
         cols: 80,
         rows: 24,
         cwd: repoPath,
-        env: process.env
+        env: getSafeEnv()
       });
       activeTasks.set(taskId, ptyProcess);
 
@@ -776,7 +809,7 @@ export async function handleApi(request, response) {
         cols: 80,
         rows: 24,
         cwd: repoPath,
-        env: process.env
+        env: getSafeEnv()
       });
       activeTasks.set(taskId, ptyProcess);
 
@@ -823,7 +856,7 @@ export async function handleApi(request, response) {
         cols: 80,
         rows: 24,
         cwd: repoPath,
-        env: process.env
+        env: getSafeEnv()
       });
       activeTasks.set(taskId, ptyProcess);
 
@@ -1067,7 +1100,7 @@ export async function handleApi(request, response) {
         cols: 80,
         rows: 24,
         cwd: targetRoot,
-        env: process.env
+        env: getSafeEnv()
       });
       activeTasks.set(taskId, ptyProcess);
 

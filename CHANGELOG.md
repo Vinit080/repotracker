@@ -18,6 +18,19 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.0.9] - 2026-06-04
+
+### Fixed
+- **Security**: Completely scrubbed sensitive environments variables (e.g. `LEMONSQUEEZY`) from spawned background processes (like git syncs).
+- **Security**: Increased PBKDF2 iterations to 310,000 for password hashes and began hashing active session tokens in memory.
+- **Security**: Enforced session or IPC token validation on the `/export` data dump endpoint.
+- **Security**: Integrated DOMPurify to automatically sanitize AI-generated standup and markdown content in the frontend.
+- **Security**: Added robust `javascript:` protocol stripping for GitHub repo links to prevent XSS.
+- **Authentication**: Fixed a token extraction priority bug that was locking out users on the desktop Electron app when a local password was set.
+- **Authentication**: Patched the Git remote workspace initialization so GitHub Personal Access Tokens are passed via `http.extraHeader` instead of being embedded in the `.git/config` remote URL.
+
+---
+
 ## [1.0.8] - 2026-06-04
 
 ### Fixed
