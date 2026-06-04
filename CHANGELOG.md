@@ -18,6 +18,13 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.0.2] - 2026-06-04
+
+### Fixed
+- **Linux Build**: Fixed missing `libfuse2` dependency on `ubuntu-latest` preventing AppImage generation.
+
+---
+
 ## [1.0.1] - 2026-06-04
 
 ### Fixed
