@@ -287,7 +287,7 @@ server.listen(PORT, BIND_HOST, async () => {
             : process.platform === 'darwin'
               ? ['open', [url]]
               : ['xdg-open', [url]];
-          execFile(cmd, args, { shell: false }).catch(() => {});
+          execFile(cmd, args, { shell: false }, () => {});
         });
       }
   }
