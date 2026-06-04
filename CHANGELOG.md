@@ -18,6 +18,13 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.0.5] - 2026-06-04
+
+### Fixed
+- **Linux Build**: Added email address to the `author` field in `package.json`, which is strictly required by `electron-builder` when generating the AppImage and its internal `.desktop` file.
+
+---
+
 ## [1.0.4] - 2026-06-04
 
 ### Fixed
