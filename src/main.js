@@ -2,7 +2,8 @@ import { app, BrowserWindow, shell, ipcMain } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import log from 'electron-log';
-import { autoUpdater } from 'electron-updater';
+import pkg from 'electron-updater';
+const { autoUpdater } = pkg;
 import { LOCAL_IPC_TOKEN } from './security.js';
 
 // Configure logging
