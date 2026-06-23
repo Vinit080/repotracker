@@ -20,3 +20,5 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: 'cloudflare-worker'
+          # Force wrangler to execute a direct deploy using the local toml parameters
+          command: deploy
