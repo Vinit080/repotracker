@@ -1,0 +1,7 @@
+name = "repotracker-ping"
+main = "ping-counter.js"
+compatibility_date = "2024-01-01"
+
+[[kv_namespaces]]
+binding = "COUNTS"
+id = "5264a3d7836a413eb277037d5bc5e5e3"
